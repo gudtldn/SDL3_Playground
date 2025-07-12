@@ -1,3 +1,3 @@
-[submodule "Thirdparty/imgui"]
-	path = Thirdparty/imgui
+[submodule "ThirdParty/imgui"]
+	path = ThirdParty/imgui
 	url = https://github.com/ocornut/imgui.git
