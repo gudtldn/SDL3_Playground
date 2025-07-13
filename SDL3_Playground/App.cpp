@@ -95,7 +95,6 @@ void App::Initialize()
 
     ImGui::StyleColorsDark();
 
-    // TODO: 나중에 다중모니터 지원하도록 변경
     const float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
 
     ImGuiStyle& style = ImGui::GetStyle();
