@@ -14,24 +14,9 @@ riderModule.iml
 *.o
 *.obj
 
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
 # Fortran module files
 *.mod
 *.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
 
 # Executables
 *.exe
@@ -73,6 +58,8 @@ bld/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
+
+!ThirdParty/**
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
