@@ -202,10 +202,37 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="App.cpp"/>
-    <ClCompile Include="App.cppm"/>
+    <ClCompile Include="..\ThirdParty\imgui\backends\imgui_impl_sdl3.cpp" />
+    <ClCompile Include="..\ThirdParty\imgui\backends\imgui_impl_sdlgpu3.cpp" />
+    <ClCompile Include="..\ThirdParty\imgui\backends\imgui_impl_sdlrenderer3.cpp" />
+    <ClCompile Include="..\ThirdParty\imgui\backends\imgui_impl_win32.cpp" />
+    <ClCompile Include="..\ThirdParty\imgui\imgui.cpp" />
+    <ClCompile Include="..\ThirdParty\imgui\imgui_demo.cpp" />
+    <ClCompile Include="..\ThirdParty\imgui\imgui_draw.cpp" />
+    <ClCompile Include="..\ThirdParty\imgui\imgui_tables.cpp" />
+    <ClCompile Include="..\ThirdParty\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="App.cpp" />
+    <ClCompile Include="App.cppm" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Type.cppm"/>
+    <ClCompile Include="Type.cppm" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="..\ThirdParty\imgui\backends\sdlgpu3\build_instructions.txt" />
+    <Content Include="..\ThirdParty\imgui\backends\sdlgpu3\shader.frag" />
+    <Content Include="..\ThirdParty\imgui\backends\sdlgpu3\shader.vert" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\ThirdParty\imgui\backends\imgui_impl_sdl3.h" />
+    <ClInclude Include="..\ThirdParty\imgui\backends\imgui_impl_sdlgpu3.h" />
+    <ClInclude Include="..\ThirdParty\imgui\backends\imgui_impl_sdlgpu3_shaders.h" />
+    <ClInclude Include="..\ThirdParty\imgui\backends\imgui_impl_sdlrenderer3.h" />
+    <ClInclude Include="..\ThirdParty\imgui\backends\imgui_impl_win32.h" />
+    <ClInclude Include="..\ThirdParty\imgui\imconfig.h" />
+    <ClInclude Include="..\ThirdParty\imgui\imgui.h" />
+    <ClInclude Include="..\ThirdParty\imgui\imgui_internal.h" />
+    <ClInclude Include="..\ThirdParty\imgui\imstb_rectpack.h" />
+    <ClInclude Include="..\ThirdParty\imgui\imstb_textedit.h" />
+    <ClInclude Include="..\ThirdParty\imgui\imstb_truetype.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
