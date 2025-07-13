@@ -101,6 +101,8 @@ void App::Initialize()
     ImGuiStyle& style = ImGui::GetStyle();
     style.ScaleAllSizes(main_scale);
     style.FontScaleDpi = main_scale;
+    IO.ConfigDpiScaleFonts = true;
+    IO.ConfigDpiScaleViewports = true;
 
     ImGui_ImplSDL3_InitForSDLGPU(window);
     ImGui_ImplSDLGPU3_InitInfo init_info = {
@@ -157,6 +159,8 @@ void App::Run()
 
 void App::Release()
 {
+    SDL_WaitForGPUIdle(gpu_device);
+
     // ImGui Release
     ImGui_ImplSDLGPU3_Shutdown();
     ImGui_ImplSDL3_Shutdown();
@@ -183,15 +187,36 @@ void App::ProcessPlatformEvents()
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
-        if (event.type == SDL_EVENT_QUIT)
+        ImGui_ImplSDL3_ProcessEvent(&event);
+        switch (event.type)
+        {
+        case SDL_EVENT_QUIT:
         {
             RequestQuit();
+            break;
+        }
+        case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
+        {
+            if (event.window.windowID == main_window_id)
+            {
+                RequestQuit();
+                break;
+            }
+        }
+        default:
+            break;
         }
     }
 }
 
 void App::Update(float delta_time)
 {
+    // Start the Dear ImGui frame
+    ImGui_ImplSDLGPU3_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::ShowDemoWindow();
 }
 
 void App::Render() const
@@ -203,8 +228,15 @@ void App::Render() const
     SDL_GPUTexture* swapchain_texture;
     SDL_AcquireGPUSwapchainTexture(command_buffer, GetMainWindow(), &swapchain_texture, nullptr, nullptr);
 
-    if (swapchain_texture)
+    // Rendering
+    ImGui::Render();
+    ImDrawData* draw_data = ImGui::GetDrawData();
+    const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
+
+    if (swapchain_texture && !is_minimized)
     {
+        ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, command_buffer);
+
         constexpr SDL_FColor clear_color = { 0.25f, 0.25f, 0.25f, 1.0f };
 
         SDL_GPUColorTargetInfo target_info = {};
@@ -218,9 +250,18 @@ void App::Render() const
 
         SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
         {
-            ImGui::ShowDemoWindow();
+            // Render ImGui
+            ImGui_ImplSDLGPU3_RenderDrawData(draw_data, command_buffer, render_pass);
         }
         SDL_EndGPURenderPass(render_pass);
+    }
+
+    // Update and Render additional Platform Windows
+    const ImGuiIO& IO = ImGui::GetIO();
+    if (IO.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
     }
 
     // Command Buffer 제출
