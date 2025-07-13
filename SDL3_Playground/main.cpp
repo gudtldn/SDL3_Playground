@@ -1,7 +1,9 @@
 import std;
+import Playground.App;
 
 import <Windows.h>;
-import <SDL3/SDL.h>;
+
+App app;
 
 
 int WINAPI wWinMain(
@@ -13,9 +15,12 @@ int WINAPI wWinMain(
 {
     UNREFERENCED_PARAMETER(hInstance);
     UNREFERENCED_PARAMETER(hPrevInstance);
+    UNREFERENCED_PARAMETER(lpCmdLine);
     UNREFERENCED_PARAMETER(nShowCmd);
 
-    std::println("Hello World!");
+    app.Initialize();
+    app.Run();
+    app.Release();
 
     return 0;
 }

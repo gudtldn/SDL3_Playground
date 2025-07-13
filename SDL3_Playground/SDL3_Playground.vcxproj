@@ -202,7 +202,11 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="App.cpp"/>
+    <ClCompile Include="App.cppm"/>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="WindowManager.cpp"/>
+    <ClCompile Include="WindowManager.cppm"/>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
