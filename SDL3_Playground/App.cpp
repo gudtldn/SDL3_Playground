@@ -1,6 +1,9 @@
 ﻿module;
 #include <SDL3/SDL.h>
 module Playground.App;
+import <imgui.h>;
+import <imgui_impl_sdl3.h>;
+import <imgui_impl_sdlgpu3.h>;
 import <cassert>;
 
 
@@ -40,8 +43,8 @@ void App::Initialize()
 
     SDL_Window* window = SDL_CreateWindow(
         "SDL3 Playground",
-        width * main_display_scale,
-        height * main_display_scale,
+        static_cast<int32>(width * main_display_scale),
+        static_cast<int32>(height * main_display_scale),
         SDL_WINDOW_RESIZABLE
     );
     main_window_id = SDL_GetWindowID(window);
@@ -76,9 +79,38 @@ void App::Initialize()
         gpu_device,
         window,
         SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
-        SDL_GPU_PRESENTMODE_VSYNC
+        SDL_GPU_PRESENTMODE_MAILBOX
     );
 
+
+    // ImGui 초기화
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+
+    ImGuiIO& IO = ImGui::GetIO();
+    IO.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+    IO.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
+    IO.ConfigFlags |= ImGuiConfigFlags_DockingEnable;     // Enable Docking
+    IO.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;   // Enable Multi-Viewport / Platform Windows
+
+    ImGui::StyleColorsDark();
+
+    // TODO: 나중에 다중모니터 지원하도록 변경
+    const float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
+
+    ImGuiStyle& style = ImGui::GetStyle();
+    style.ScaleAllSizes(main_scale);
+    style.FontScaleDpi = main_scale;
+
+    ImGui_ImplSDL3_InitForSDLGPU(window);
+    ImGui_ImplSDLGPU3_InitInfo init_info = {
+        .Device = gpu_device,
+        .ColorTargetFormat = SDL_GetGPUSwapchainTextureFormat(gpu_device, window),
+        .MSAASamples = SDL_GPU_SAMPLECOUNT_1,
+    };
+    ImGui_ImplSDLGPU3_Init(&init_info);
+
+    SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_ShowWindow(window);
 }
 
@@ -125,6 +157,11 @@ void App::Run()
 
 void App::Release()
 {
+    // ImGui Release
+    ImGui_ImplSDLGPU3_Shutdown();
+    ImGui_ImplSDL3_Shutdown();
+    ImGui::DestroyContext();
+
     // GPU Device Release
     SDL_ReleaseWindowFromGPUDevice(gpu_device, GetMainWindow());
     SDL_DestroyGPUDevice(gpu_device);
@@ -181,6 +218,7 @@ void App::Render() const
 
         SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
         {
+            ImGui::ShowDemoWindow();
         }
         SDL_EndGPURenderPass(render_pass);
     }
