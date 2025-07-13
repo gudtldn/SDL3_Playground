@@ -1,30 +1,10 @@
-﻿export module Playground.App;
+﻿module;
+#include <SDL3/SDL.h>
+export module Playground.App;
+export import Playground.Type;
+
 import std;
-import <cstdint>;
-import <cstddef>;
 
-export
-{
-    // 정수형
-    using int8 = std::int8_t;
-    using uint8 = std::uint8_t;
-    using int16 = std::int16_t;
-    using uint16 = std::uint16_t;
-    using int32 = std::int32_t;
-    using uint32 = std::uint32_t;
-    using int64 = std::int64_t;
-    using uint64 = std::uint64_t;
-
-    // 문자형 (UTF-8 기본)
-    using char8 = char8_t;
-    using char16 = char16_t;
-    using char32 = char32_t;
-
-    // 크기 및 포인터 정수형
-    using size_t = std::size_t;
-    using intptr = std::intptr_t;
-    using uintptr = std::uintptr_t;
-}
 
 export class App
 {
@@ -70,6 +50,10 @@ public:
         TargetFrameTime = 1.0 / static_cast<double>(TargetFps);
     }
 
+    SDL_Window* GetWindow(SDL_WindowID window_id) const { return windows.at(window_id); }
+    SDL_Window* GetMainWindow() const { return GetWindow(main_window_id); }
+    SDL_GPUDevice* GetGPUDevice() const { return gpu_device; }
+
 private:
     static App* Instance;
 
@@ -86,4 +70,10 @@ private:
     // Loop 제어 변수
     bool is_running = false;
     bool quit_requested = false;
+
+private:
+    SDL_WindowID main_window_id = 0;
+    std::unordered_map<SDL_WindowID, SDL_Window*> windows;
+
+    SDL_GPUDevice* gpu_device = nullptr;
 };
