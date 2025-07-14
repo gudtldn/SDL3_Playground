@@ -95,11 +95,10 @@ void App::Initialize()
 
     ImGui::StyleColorsDark();
 
-    const float main_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
 
     ImGuiStyle& style = ImGui::GetStyle();
-    style.ScaleAllSizes(main_scale);
-    style.FontScaleDpi = main_scale;
+    style.ScaleAllSizes(main_display_scale);
+    style.FontScaleDpi = main_display_scale;
     IO.ConfigDpiScaleFonts = true;
     IO.ConfigDpiScaleViewports = true;
 
