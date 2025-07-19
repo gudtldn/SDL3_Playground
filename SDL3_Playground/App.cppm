@@ -52,6 +52,11 @@ public:
 
     SDL_Window* GetWindow(SDL_WindowID window_id) const { return windows.at(window_id); }
     SDL_Window* GetMainWindow() const { return GetWindow(main_window_id); }
+
+    SDL_WindowID CreateWindow(const char* title, int32 x, int32 y, int32 width, int32 height, uint32 flags);
+    void DestroyWindow(SDL_WindowID window_id);
+    void DestroyWindow(SDL_Window* window);
+
     SDL_GPUDevice* GetGPUDevice() const { return gpu_device; }
 
 private:

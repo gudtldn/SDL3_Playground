@@ -34,23 +34,6 @@ void App::Initialize()
 {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS);
 
-
-    /* 윈도우 초기화 */
-    const float main_display_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
-
-    constexpr int32 width = 1600;
-    constexpr int32 height = 900;
-
-    SDL_Window* window = SDL_CreateWindow(
-        "SDL3 Playground",
-        static_cast<int32>(width * main_display_scale),
-        static_cast<int32>(height * main_display_scale),
-        SDL_WINDOW_RESIZABLE
-    );
-    main_window_id = SDL_GetWindowID(window);
-    windows.insert({ main_window_id, window });
-
-
     /* GPU Device 초기화 */
     // 지원할 셰이더 포맷들 설정
     const SDL_PropertiesID props = SDL_CreateProperties();
@@ -71,8 +54,23 @@ void App::Initialize()
     gpu_device = SDL_CreateGPUDeviceWithProperties(props);
     SDL_DestroyProperties(props);
 
-    // Window와 GPU 연결
-    SDL_ClaimWindowForGPUDevice(gpu_device, window);
+
+    /* 윈도우 초기화 */
+    const float main_display_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
+
+    constexpr int32 width = 1600;
+    constexpr int32 height = 900;
+
+    main_window_id = CreateWindow(
+        "SDL3 Playground",
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        static_cast<int32>(width * main_display_scale),
+        static_cast<int32>(height * main_display_scale),
+        SDL_WINDOW_RESIZABLE
+    );
+
+    SDL_Window* window = GetWindow(main_window_id);
+    windows.insert({ main_window_id, window });
 
     // Swapchain 설정
     SDL_SetGPUSwapchainParameters(
@@ -169,18 +167,17 @@ void App::Release()
     ImGui_ImplSDL3_Shutdown();
     ImGui::DestroyContext();
 
-    // GPU Device Release
-    SDL_ReleaseWindowFromGPUDevice(gpu_device, GetMainWindow());
-    SDL_DestroyGPUDevice(gpu_device);
-    gpu_device = nullptr;
-
     // Windows Release
-    for (auto& window : windows | std::views::reverse | std::views::values)
+    for (SDL_Window* window : windows | std::views::reverse | std::views::values)
     {
+        SDL_ReleaseWindowFromGPUDevice(gpu_device, window);
         SDL_DestroyWindow(window);
-        window = nullptr;
     }
     windows.clear();
+
+    // GPU Device Release
+    SDL_DestroyGPUDevice(gpu_device);
+    gpu_device = nullptr;
 
     SDL_Quit();
 }
@@ -205,6 +202,8 @@ void App::ProcessPlatformEvents()
                 RequestQuit();
                 break;
             }
+            DestroyWindow(event.window.windowID);
+            break;
         }
         default:
             break;
@@ -220,6 +219,39 @@ void App::Update(float delta_time)
     ImGui::NewFrame();
 
     ImGui::ShowDemoWindow();
+
+    ImGui::Begin("asdasd");
+    {
+        static std::array<char, 256> window_title = {};
+        static int32 window_x = 100;
+        static int32 window_y = 100;
+        static int32 window_width = 1280;
+        static int32 window_height = 720;
+
+        ImGui::InputText(
+            "Window Title",
+            window_title.data(),
+            window_title.size(),
+            ImGuiInputTextFlags_EnterReturnsTrue
+        );
+        ImGui::InputInt("Window X", &window_x);
+        ImGui::InputInt("Window Y", &window_y);
+        ImGui::InputInt("Window Width", &window_width);
+        ImGui::InputInt("Window Height", &window_height);
+
+        if (ImGui::Button("New Window"))
+        {
+            CreateWindow(
+                window_title.data(),
+                window_x,
+                window_y,
+                window_width,
+                window_height,
+                SDL_WINDOW_RESIZABLE
+            );
+        }
+    }
+    ImGui::End();
 }
 
 void App::Render() const
@@ -269,4 +301,36 @@ void App::Render() const
 
     // Command Buffer 제출
     SDL_SubmitGPUCommandBuffer(command_buffer);
+}
+
+SDL_WindowID App::CreateWindow(const char* title, int32 x, int32 y, int32 width, int32 height, uint32 flags)
+{
+    SDL_Window* window = SDL_CreateWindow(title, width, height, flags);
+    SDL_SetWindowPosition(window, x, y);
+
+    SDL_WindowID window_id = SDL_GetWindowID(window);
+    windows.insert({ window_id, window });
+
+    SDL_ClaimWindowForGPUDevice(gpu_device, window);
+    SDL_SetGPUSwapchainParameters(
+        gpu_device,
+        window,
+        SDL_GPU_SWAPCHAINCOMPOSITION_SDR,
+        SDL_GPU_PRESENTMODE_MAILBOX
+    );
+
+    return window_id;
+}
+
+void App::DestroyWindow(SDL_WindowID window_id)
+{
+    SDL_Window* window = GetWindow(window_id);
+    SDL_ReleaseWindowFromGPUDevice(gpu_device, window);
+    SDL_DestroyWindow(window);
+    windows.erase(window_id);
+}
+
+void App::DestroyWindow(SDL_Window* window)
+{
+    DestroyWindow(SDL_GetWindowID(window));
 }
