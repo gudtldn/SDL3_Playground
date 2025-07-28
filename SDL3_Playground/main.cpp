@@ -1,5 +1,6 @@
 import std;
 import Playground.App;
+import SimpleEngine.Types;
 
 import <Windows.h>;
 
