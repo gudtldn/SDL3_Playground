@@ -1,6 +1,7 @@
 ﻿module;
 #include <SDL3/SDL.h>
 module Playground.App;
+import SimpleEngine.Core;
 import <imgui.h>;
 import <imgui_impl_sdl3.h>;
 import <imgui_impl_sdlgpu3.h>;
@@ -249,6 +250,47 @@ void App::Update(float delta_time)
                 window_height,
                 SDL_WINDOW_RESIZABLE
             );
+        }
+    }
+    ImGui::End();
+
+    ImGui::Begin("ECS Test");
+    {
+        using namespace se::core::ecs;
+
+        static World world;
+        static std::vector<Entity> entities;
+        static int32 spawn_count = 0;
+        ImGui::InputInt("Spawn Count", &spawn_count);
+        if (ImGui::Button("Create Entity"))
+        {
+            for (int32 i = 0; i < spawn_count; ++i)
+            {
+                auto e = world.CreateEntity();
+                class T {};
+                class U {};
+                class V {};
+                e.AddComponent<T>()
+                 .AddComponent<U>()
+                 .AddComponent<V>();
+                entities.push_back(e);
+            }
+        }
+        if (ImGui::Button("Destroy Entity"))
+        {
+            for (int32 i = 0; i < spawn_count; ++i)
+            {
+                if (!entities.empty())
+                {
+                    world.DestroyEntity(entities.back());
+                    entities.pop_back();
+                }
+            }
+        }
+        ImGui::Text("Entity Count: %d", entities.size());
+        for (Entity e : entities)
+        {
+            ImGui::Text("Entity ID: %d", e.GetId());
         }
     }
     ImGui::End();
