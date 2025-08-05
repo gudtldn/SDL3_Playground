@@ -211,6 +211,7 @@ xcopy /Y /D "$(SolutionDir)ThirdParty\icu4c\bin\$(PlatformTarget)\icu*.dll" "$(O
   </ItemDefinitionGroup>
   <ItemGroup>
     <None Include="..\Shaders\Default.vert.hlsl" />
+    <None Include="..\Shaders\Default.frag.hlsl" />
     <ClCompile Include="..\ThirdParty\imgui\backends\imgui_impl_sdl3.cpp" />
     <ClCompile Include="..\ThirdParty\imgui\backends\imgui_impl_sdlgpu3.cpp" />
     <ClCompile Include="..\ThirdParty\imgui\backends\imgui_impl_sdlrenderer3.cpp" />
