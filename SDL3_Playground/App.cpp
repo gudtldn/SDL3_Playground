@@ -297,12 +297,6 @@ void App::Run()
         DeltaTime = CurrentTime - LastTime;
         TotalElapsedTime += static_cast<uint64>(DeltaTime * 1000.0);
 
-        if (SDL_GetWindowFlags(GetMainWindow()) & SDL_WINDOW_MINIMIZED)
-        {
-            SDL_Delay(10);
-            continue;
-        }
-
         ProcessPlatformEvents();
 
         Update(static_cast<float>(DeltaTime));
