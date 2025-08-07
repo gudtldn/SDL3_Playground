@@ -426,61 +426,73 @@ void App::Update(float delta_time)
 
 void App::Render() const
 {
-    // Command Buffer 가져오기
-    SDL_GPUCommandBuffer* command_buffer = SDL_AcquireGPUCommandBuffer(gpu_device);
-
-    // Swapchain Texture 가져오기 (화면에 그릴 캔버스 역할)
-    SDL_GPUTexture* swapchain_texture;
-    // SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, GetMainWindow(), &swapchain_texture, nullptr, nullptr);
-    SDL_AcquireGPUSwapchainTexture(command_buffer, GetMainWindow(), &swapchain_texture, nullptr, nullptr);
-
-    // Rendering
-    ImGui::Render();
-    ImDrawData* draw_data = ImGui::GetDrawData();
-    const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
-
-    if (swapchain_texture && !is_minimized)
+    for (const auto& [window_id, window] : windows)
     {
-        ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, command_buffer);
+        // Command Buffer 가져오기
+        SDL_GPUCommandBuffer* command_buffer = SDL_AcquireGPUCommandBuffer(gpu_device);
 
-        constexpr SDL_FColor clear_color = { 0.25f, 0.25f, 0.25f, 1.0f };
+        // Swapchain Texture 가져오기 (화면에 그릴 캔버스 역할)
+        SDL_GPUTexture* swapchain_texture;
+        // SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, window, &swapchain_texture, nullptr, nullptr);
+        SDL_AcquireGPUSwapchainTexture(command_buffer, window, &swapchain_texture, nullptr, nullptr);
 
-        SDL_GPUColorTargetInfo target_info = {};
-        target_info.texture = swapchain_texture;
-        target_info.clear_color = clear_color;
-        target_info.load_op = SDL_GPU_LOADOP_CLEAR;
-        target_info.store_op = SDL_GPU_STOREOP_STORE;
-        target_info.mip_level = 0;
-        target_info.layer_or_depth_plane = 0;
-        target_info.cycle = false;
+        // Rendering
+        ImGui::Render();
+        ImDrawData* draw_data = ImGui::GetDrawData();
+        const bool is_minimized = (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
 
-        SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
+        if (swapchain_texture && !is_minimized)
         {
-            SDL_BindGPUGraphicsPipeline(render_pass, pipeline);
+            if (window_id == main_window_id)
+            {
+                ImGui_ImplSDLGPU3_PrepareDrawData(draw_data, command_buffer);
+            }
 
-            // Vertex Buffer 바인딩
-            const SDL_GPUBufferBinding vertex_binding = {
-                .buffer = vertex_buffer,
-                .offset = 0
-            };
-            SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_binding, 1);
+            constexpr SDL_FColor clear_color = { 0.25f, 0.25f, 0.25f, 1.0f };
 
-            // Index Buffer 바인딩
-            const SDL_GPUBufferBinding index_binding = {
-                .buffer = index_buffer,
-                .offset = 0
-            };
-            SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+            SDL_GPUColorTargetInfo target_info = {};
+            target_info.texture = swapchain_texture;
+            target_info.clear_color = clear_color;
+            target_info.load_op = SDL_GPU_LOADOP_CLEAR;
+            target_info.store_op = SDL_GPU_STOREOP_STORE;
+            target_info.mip_level = 0;
+            target_info.layer_or_depth_plane = 0;
+            target_info.cycle = false;
 
-            // 삼각형 그리기 (인덱스 사용하는 경우)
-            SDL_DrawGPUIndexedPrimitives(render_pass, std::size(indices), 1, 0, 0, 0);
-            // 또는 인덱스 없이 그리기
-            // SDL_DrawGPUPrimitives(render_pass, std::size(vertices), 1, 0, 0);
+            SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
+            {
+                SDL_BindGPUGraphicsPipeline(render_pass, pipeline);
 
-            // Render ImGui
-            ImGui_ImplSDLGPU3_RenderDrawData(draw_data, command_buffer, render_pass);
+                // Vertex Buffer 바인딩
+                const SDL_GPUBufferBinding vertex_binding = {
+                    .buffer = vertex_buffer,
+                    .offset = 0
+                };
+                SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_binding, 1);
+
+                // Index Buffer 바인딩
+                const SDL_GPUBufferBinding index_binding = {
+                    .buffer = index_buffer,
+                    .offset = 0
+                };
+                SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+
+                // 삼각형 그리기 (인덱스 사용하는 경우)
+                SDL_DrawGPUIndexedPrimitives(render_pass, std::size(indices), 1, 0, 0, 0);
+                // 또는 인덱스 없이 그리기
+                // SDL_DrawGPUPrimitives(render_pass, std::size(vertices), 1, 0, 0);
+
+                // Render ImGui
+                if (window_id == main_window_id)
+                {
+                    ImGui_ImplSDLGPU3_RenderDrawData(draw_data, command_buffer, render_pass);
+                }
+            }
+            SDL_EndGPURenderPass(render_pass);
         }
-        SDL_EndGPURenderPass(render_pass);
+
+        // Command Buffer 제출
+        SDL_SubmitGPUCommandBuffer(command_buffer);
     }
 
     // Update and Render additional Platform Windows
@@ -490,9 +502,6 @@ void App::Render() const
         ImGui::UpdatePlatformWindows();
         ImGui::RenderPlatformWindowsDefault();
     }
-
-    // Command Buffer 제출
-    SDL_SubmitGPUCommandBuffer(command_buffer);
 }
 
 SDL_WindowID App::CreateWindow(const char* title, int32 x, int32 y, int32 width, int32 height, uint32 flags)
