@@ -1,10 +1,11 @@
-struct PS_Input
+struct PixelInput
 {
-    float4 pos : SV_POSITION;
-    float4 color : COLOR0;
+    float4 position : SV_Position;
+    float4 color : COLOR;
 };
 
-float4 main(PS_Input input) : SV_Target0
+float4 main(PixelInput input) : SV_Target0
 {
+    // 보간된 색상을 그대로 반환
     return input.color;
 }

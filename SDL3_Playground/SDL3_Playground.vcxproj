@@ -210,6 +210,7 @@ xcopy /Y /D "$(SolutionDir)ThirdParty\icu4c\bin\$(PlatformTarget)\icu*.dll" "$(O
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Utility.cppm" />
     <None Include="..\Shaders\Default.vert.hlsl" />
     <None Include="..\Shaders\Default.frag.hlsl" />
     <ClCompile Include="..\ThirdParty\imgui\backends\imgui_impl_sdl3.cpp" />
