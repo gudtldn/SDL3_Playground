@@ -413,7 +413,7 @@ void App::Update(float delta_time)
     ImGui::Begin("Test");
     {
         ImGui::Text("FPS: %.3f", ImGui::GetIO().Framerate);
-        ImGui::Text("FPS: %.3f", 1 / GetDeltaTime());
+        ImGui::Text("FPS: %.3f", 1 / delta_time);
     }
     ImGui::End();
 }
