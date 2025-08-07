@@ -2,6 +2,8 @@
 #include <SDL3/SDL.h>
 module Playground.App;
 import SimpleEngine.Core;
+import SimpleEngine.Utility;
+import Playground.Utility;
 import <imgui.h>;
 import <imgui_impl_sdl3.h>;
 import <imgui_impl_sdlgpu3.h>;
@@ -18,6 +20,33 @@ uint32 App::TargetFps = 240;
 double App::TargetFrameTime = 1.0 / static_cast<double>(TargetFps);
 
 App* App::Instance = nullptr;
+
+
+struct Vertex
+{
+    float position[3];  // POSITION 시맨틱
+    float color[4];     // COLOR 시맨틱
+};
+
+// constexpr Vertex vertices[] = {
+//     // 위쪽 - 빨간색
+//     {{ 0.0f,  0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+//     // 왼쪽 아래 - 초록색
+//     {{-0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
+//     // 오른쪽 아래 - 파란색
+//     {{ 0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}}
+// };
+
+// constexpr uint16 indices[] = {0, 1, 2};
+
+constexpr Vertex vertices[] = {
+    {{ -0.5f, 0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }},
+    {{ 0.5f, 0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }},
+    {{ -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }},
+    {{ 0.5f, -0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }},
+};
+
+constexpr uint16 indices[] = { 0, 1, 2, 2, 1, 3 };
 
 
 App::App()
@@ -111,6 +140,139 @@ void App::Initialize()
 
     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_ShowWindow(window);
+
+    // create shader
+    const std::filesystem::path root = std::filesystem::current_path().parent_path();
+    const std::vector vertex_shader_binary = se::utility::file_utils::ReadFromBinary(root / "Shaders/Compiled/Default.vert.dxil").value();
+    const std::vector fragment_shader_binary = se::utility::file_utils::ReadFromBinary(root / "Shaders/Compiled/Default.frag.dxil").value();
+
+    SDL_GPUShader* vertex_shader = playground::utility::shader_utils::LoadShader(
+        gpu_device,
+        root / "Shaders/Compiled/Default.vert.dxil",
+        0,
+        0,
+        0,
+        0
+    );
+    SDL_GPUShader* fragment_shader = playground::utility::shader_utils::LoadShader(
+        gpu_device,
+        root / "Shaders/Compiled/Default.frag.dxil",
+        0,
+        0,
+        0,
+        0
+    );
+
+    // 버텍스 입력 설정
+    SDL_GPUVertexBufferDescription vertex_buffer_desc = {
+        .slot = 0,
+        .pitch = sizeof(Vertex),
+        .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX
+    };
+
+    SDL_GPUVertexAttribute vertex_attributes[2] = {
+        {
+            .location = 0, // POSITION
+            .buffer_slot = 0,
+            .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, // POSITION
+            .offset = offsetof(Vertex, position)
+        },
+        {
+            .location = 1, // COLOR0
+            .buffer_slot = 0,
+            .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4, // COLOR0
+            .offset = offsetof(Vertex, color)
+        },
+    };
+
+    SDL_GPUColorTargetDescription color_target_desc = {
+        .format = SDL_GetGPUSwapchainTextureFormat(gpu_device, window),
+    };
+
+    // 파이프라인 초기화
+    SDL_GPUGraphicsPipelineCreateInfo pipeline_info = {
+        .vertex_shader = vertex_shader,
+        .fragment_shader = fragment_shader,
+        .vertex_input_state = {
+            .vertex_buffer_descriptions = &vertex_buffer_desc,
+            .num_vertex_buffers = 1,
+            .vertex_attributes = vertex_attributes,
+            .num_vertex_attributes = 2
+        },
+        .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+        .target_info = {
+            .color_target_descriptions = &color_target_desc,
+            .num_color_targets = 1,
+        },
+    };
+    pipeline_info.rasterizer_state = {
+        .fill_mode = SDL_GPU_FILLMODE_FILL,
+        .cull_mode = SDL_GPU_CULLMODE_NONE,  // 양면 렌더링
+        .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE
+    },
+
+    pipeline = SDL_CreateGPUGraphicsPipeline(gpu_device, &pipeline_info);
+
+    SDL_ReleaseGPUShader(gpu_device, vertex_shader);
+    SDL_ReleaseGPUShader(gpu_device, fragment_shader);
+
+    // 버텍스 버퍼
+    SDL_GPUBufferCreateInfo vertex_buffer_info = {
+        .usage = SDL_GPU_BUFFERUSAGE_VERTEX,
+        .size = sizeof(vertices)
+    };
+    vertex_buffer = SDL_CreateGPUBuffer(gpu_device, &vertex_buffer_info);
+
+    // 인덱스 버퍼
+    SDL_GPUBufferCreateInfo index_buffer_info = {
+        .usage = SDL_GPU_BUFFERUSAGE_INDEX,
+        .size = sizeof(indices)
+    };
+    index_buffer = SDL_CreateGPUBuffer(gpu_device, &index_buffer_info);
+
+    SDL_GPUTransferBufferCreateInfo transfer_info = {
+        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+        .size = sizeof(vertices) + sizeof(indices)
+    };
+    SDL_GPUTransferBuffer* transfer_buffer = SDL_CreateGPUTransferBuffer(gpu_device, &transfer_info);
+
+    void* transfer_data = SDL_MapGPUTransferBuffer(gpu_device, transfer_buffer, false);
+    std::memcpy(transfer_data, vertices, sizeof(vertices));
+    std::memcpy(static_cast<uint8*>(transfer_data) + sizeof(vertices), indices, sizeof(indices));
+    SDL_UnmapGPUTransferBuffer(gpu_device, transfer_buffer);
+
+    SDL_GPUCommandBuffer* upload_cmd = SDL_AcquireGPUCommandBuffer(gpu_device);
+    SDL_GPUCopyPass* copy_pass = SDL_BeginGPUCopyPass(upload_cmd);
+    {
+        SDL_GPUTransferBufferLocation vertex_location = {
+            .transfer_buffer = transfer_buffer,
+            .offset = 0
+        };
+
+        SDL_GPUBufferRegion vertex_region = {
+            .buffer = vertex_buffer,
+            .offset = 0,
+            .size = sizeof(vertices)
+        };
+
+        SDL_UploadToGPUBuffer(copy_pass, &vertex_location, &vertex_region, false);
+
+        SDL_GPUTransferBufferLocation index_location = {
+            .transfer_buffer = transfer_buffer,
+            .offset = sizeof(vertices)
+        };
+
+        SDL_GPUBufferRegion index_region = {
+            .buffer = index_buffer,
+            .offset = 0,
+            .size = sizeof(indices)
+        };
+
+        SDL_UploadToGPUBuffer(copy_pass, &index_location, &index_region, false);
+    }
+    SDL_EndGPUCopyPass(copy_pass);
+    SDL_SubmitGPUCommandBuffer(upload_cmd);
+    SDL_ReleaseGPUTransferBuffer(gpu_device, transfer_buffer);
 }
 
 void App::Run()
@@ -254,44 +416,10 @@ void App::Update(float delta_time)
     }
     ImGui::End();
 
-    ImGui::Begin("ECS Test");
+    ImGui::Begin("Test");
     {
-        using namespace se::core::ecs;
-
-        static World world;
-        static std::vector<Entity> entities;
-        static int32 spawn_count = 0;
-        ImGui::InputInt("Spawn Count", &spawn_count);
-        if (ImGui::Button("Create Entity"))
-        {
-            for (int32 i = 0; i < spawn_count; ++i)
-            {
-                auto e = world.CreateEntity();
-                class T {};
-                class U {};
-                class V {};
-                e.AddComponent<T>()
-                 .AddComponent<U>()
-                 .AddComponent<V>();
-                entities.push_back(e);
-            }
-        }
-        if (ImGui::Button("Destroy Entity"))
-        {
-            for (int32 i = 0; i < spawn_count; ++i)
-            {
-                if (!entities.empty())
-                {
-                    world.DestroyEntity(entities.back());
-                    entities.pop_back();
-                }
-            }
-        }
-        ImGui::Text("Entity Count: %d", entities.size());
-        for (Entity e : entities)
-        {
-            ImGui::Text("Entity ID: %d", e.GetId());
-        }
+        ImGui::Text("FPS: %.3f", ImGui::GetIO().Framerate);
+        ImGui::Text("FPS: %.3f", 1 / GetDeltaTime());
     }
     ImGui::End();
 }
@@ -303,6 +431,7 @@ void App::Render() const
 
     // Swapchain Texture 가져오기 (화면에 그릴 캔버스 역할)
     SDL_GPUTexture* swapchain_texture;
+    // SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, GetMainWindow(), &swapchain_texture, nullptr, nullptr);
     SDL_AcquireGPUSwapchainTexture(command_buffer, GetMainWindow(), &swapchain_texture, nullptr, nullptr);
 
     // Rendering
@@ -327,6 +456,27 @@ void App::Render() const
 
         SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
         {
+            SDL_BindGPUGraphicsPipeline(render_pass, pipeline);
+
+            // Vertex Buffer 바인딩
+            const SDL_GPUBufferBinding vertex_binding = {
+                .buffer = vertex_buffer,
+                .offset = 0
+            };
+            SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_binding, 1);
+
+            // Index Buffer 바인딩
+            const SDL_GPUBufferBinding index_binding = {
+                .buffer = index_buffer,
+                .offset = 0
+            };
+            SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+
+            // 삼각형 그리기 (인덱스 사용하는 경우)
+            SDL_DrawGPUIndexedPrimitives(render_pass, std::size(indices), 1, 0, 0, 0);
+            // 또는 인덱스 없이 그리기
+            // SDL_DrawGPUPrimitives(render_pass, std::size(vertices), 1, 0, 0);
+
             // Render ImGui
             ImGui_ImplSDLGPU3_RenderDrawData(draw_data, command_buffer, render_pass);
         }

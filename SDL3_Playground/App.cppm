@@ -81,4 +81,9 @@ private:
     std::unordered_map<SDL_WindowID, SDL_Window*> windows;
 
     SDL_GPUDevice* gpu_device = nullptr;
+
+    SDL_GPUGraphicsPipeline* pipeline = nullptr;
+
+    SDL_GPUBuffer* vertex_buffer = nullptr;
+    SDL_GPUBuffer* index_buffer = nullptr;
 };
