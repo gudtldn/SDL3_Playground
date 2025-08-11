@@ -123,7 +123,6 @@ void App::Initialize()
 
     ImGui::StyleColorsDark();
 
-
     ImGuiStyle& style = ImGui::GetStyle();
     style.ScaleAllSizes(main_display_scale);
     style.FontScaleDpi = main_display_scale;
@@ -143,9 +142,6 @@ void App::Initialize()
 
     // create shader
     const std::filesystem::path root = std::filesystem::current_path().parent_path();
-    const std::vector vertex_shader_binary = se::utility::file_utils::ReadFromBinary(root / "Shaders/Compiled/Default.vert.dxil").value();
-    const std::vector fragment_shader_binary = se::utility::file_utils::ReadFromBinary(root / "Shaders/Compiled/Default.frag.dxil").value();
-
     SDL_GPUShader* vertex_shader = playground::utility::shader_utils::LoadShader(
         gpu_device,
         root / "Shaders/Compiled/Default.vert.dxil",
