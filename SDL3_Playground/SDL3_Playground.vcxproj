@@ -100,18 +100,18 @@
       <BuildStlModules>true</BuildStlModules>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
-      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)Binaries\$(PlatformTarget)\$(Configuration);$(SolutionDir)ThirdParty\icu4c\lib\$(PlatformTarget);$(SolutionDir)ThirdParty\SDL3\lib\$(PlatformTarget);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>EngineCore.lib;SDL3.lib;SDL3_test.lib;icudt.lib;icuin.lib;icuio.lib;icuuc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)Binaries\$(PlatformTarget)\$(Configuration);$(SolutionDir)ThirdParty\icu4c\lib\$(PlatformTarget);$(SolutionDir)ThirdParty\SDL3\lib\$(PlatformTarget);$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>EngineCore.lib;SDL3.lib;SDL3_test.lib;SDL3_shadercross.lib;icudt.lib;icuin.lib;icuio.lib;icuuc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y /D "$(SolutionDir)ThirdParty\SDL3\lib\$(PlatformTarget)\SDL3.dll" "$(OutDir)"
 xcopy /Y /D "$(SolutionDir)ThirdParty\icu4c\bin\$(PlatformTarget)\icu*.dll" "$(OutDir)"
-</Command>
+xcopy /Y /D "$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\bin\*.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -129,18 +129,18 @@ xcopy /Y /D "$(SolutionDir)ThirdParty\icu4c\bin\$(PlatformTarget)\icu*.dll" "$(O
       <BuildStlModules>true</BuildStlModules>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
-      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)Binaries\$(PlatformTarget)\$(Configuration);$(SolutionDir)ThirdParty\icu4c\lib\$(PlatformTarget);$(SolutionDir)ThirdParty\SDL3\lib\$(PlatformTarget);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>EngineCore.lib;SDL3.lib;SDL3_test.lib;icudt.lib;icuin.lib;icuio.lib;icuuc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)Binaries\$(PlatformTarget)\$(Configuration);$(SolutionDir)ThirdParty\icu4c\lib\$(PlatformTarget);$(SolutionDir)ThirdParty\SDL3\lib\$(PlatformTarget);$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>EngineCore.lib;SDL3.lib;SDL3_test.lib;SDL3_shadercross.lib;icudt.lib;icuin.lib;icuio.lib;icuuc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y /D "$(SolutionDir)ThirdParty\SDL3\lib\$(PlatformTarget)\SDL3.dll" "$(OutDir)"
 xcopy /Y /D "$(SolutionDir)ThirdParty\icu4c\bin\$(PlatformTarget)\icu*.dll" "$(OutDir)"
-</Command>
+xcopy /Y /D "$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\bin\*.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -160,20 +160,20 @@ xcopy /Y /D "$(SolutionDir)ThirdParty\icu4c\bin\$(PlatformTarget)\icu*.dll" "$(O
       <BuildStlModules>true</BuildStlModules>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
-      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)Binaries\$(PlatformTarget)\$(Configuration);$(SolutionDir)ThirdParty\icu4c\lib\$(PlatformTarget);$(SolutionDir)ThirdParty\SDL3\lib\$(PlatformTarget);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>EngineCore.lib;SDL3.lib;SDL3_test.lib;icudt.lib;icuin.lib;icuio.lib;icuuc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)Binaries\$(PlatformTarget)\$(Configuration);$(SolutionDir)ThirdParty\icu4c\lib\$(PlatformTarget);$(SolutionDir)ThirdParty\SDL3\lib\$(PlatformTarget);$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>EngineCore.lib;SDL3.lib;SDL3_test.lib;SDL3_shadercross.lib;icudt.lib;icuin.lib;icuio.lib;icuuc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y /D "$(SolutionDir)ThirdParty\SDL3\lib\$(PlatformTarget)\SDL3.dll" "$(OutDir)"
 xcopy /Y /D "$(SolutionDir)ThirdParty\icu4c\bin\$(PlatformTarget)\icu*.dll" "$(OutDir)"
-</Command>
+xcopy /Y /D "$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\bin\*.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -193,20 +193,20 @@ xcopy /Y /D "$(SolutionDir)ThirdParty\icu4c\bin\$(PlatformTarget)\icu*.dll" "$(O
       <BuildStlModules>true</BuildStlModules>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
-      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)Binaries\$(PlatformTarget)\$(Configuration);$(SolutionDir)ThirdParty\icu4c\lib\$(PlatformTarget);$(SolutionDir)ThirdParty\SDL3\lib\$(PlatformTarget);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>EngineCore.lib;SDL3.lib;SDL3_test.lib;icudt.lib;icuin.lib;icuio.lib;icuuc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)Binaries\$(PlatformTarget)\$(Configuration);$(SolutionDir)ThirdParty\icu4c\lib\$(PlatformTarget);$(SolutionDir)ThirdParty\SDL3\lib\$(PlatformTarget);$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>EngineCore.lib;SDL3.lib;SDL3_test.lib;SDL3_shadercross.lib;icudt.lib;icuin.lib;icuio.lib;icuuc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
       <Command>xcopy /Y /D "$(SolutionDir)ThirdParty\SDL3\lib\$(PlatformTarget)\SDL3.dll" "$(OutDir)"
 xcopy /Y /D "$(SolutionDir)ThirdParty\icu4c\bin\$(PlatformTarget)\icu*.dll" "$(OutDir)"
-</Command>
+xcopy /Y /D "$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\bin\*.dll" "$(OutDir)"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

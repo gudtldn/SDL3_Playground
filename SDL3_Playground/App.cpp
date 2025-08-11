@@ -1,5 +1,6 @@
 ﻿module;
 #include <SDL3/SDL.h>
+#include <SDL3_shadercross/SDL_shadercross.h>
 module Playground.App;
 import SimpleEngine.Core;
 import SimpleEngine.Utility;
@@ -63,6 +64,7 @@ App::~App()
 void App::Initialize()
 {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS);
+    SDL_ShaderCross_Init();
 
     /* GPU Device 초기화 */
     // 지원할 셰이더 포맷들 설정
@@ -142,17 +144,21 @@ void App::Initialize()
 
     // create shader
     const std::filesystem::path root = std::filesystem::current_path().parent_path();
-    SDL_GPUShader* vertex_shader = playground::utility::shader_utils::LoadShader(
+    SDL_GPUShader* vertex_shader = playground::utility::shader_utils::CompileHLSL(
         gpu_device,
-        root / "Shaders/Compiled/Default.vert.dxil",
+        root / "Shaders/Default.vert.hlsl",
+        std::nullopt,
+        std::nullopt,
         0,
         0,
         0,
         0
     );
-    SDL_GPUShader* fragment_shader = playground::utility::shader_utils::LoadShader(
+    SDL_GPUShader* fragment_shader = playground::utility::shader_utils::CompileHLSL(
         gpu_device,
-        root / "Shaders/Compiled/Default.frag.dxil",
+        root / "Shaders/Default.frag.hlsl",
+        std::nullopt,
+        std::nullopt,
         0,
         0,
         0,
@@ -332,6 +338,7 @@ void App::Release()
     SDL_DestroyGPUDevice(gpu_device);
     gpu_device = nullptr;
 
+    SDL_ShaderCross_Quit();
     SDL_Quit();
 }
 
