@@ -2,6 +2,7 @@ import std;
 import Playground.App;
 import SimpleEngine.Types;
 
+import SimpleEngine.Core;
 import <Windows.h>;
 
 App app;
@@ -18,6 +19,12 @@ int WINAPI wWinMain(
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
     UNREFERENCED_PARAMETER(nShowCmd);
+
+    {
+        using namespace se::core::logging;
+        LogBackendManager::Get().AddBackend<backends::ConsoleBackend>();
+        LogSettings::SetForceColor(true);
+    }
 
     app.Initialize();
     app.Run();
