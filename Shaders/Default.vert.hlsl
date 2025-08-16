@@ -1,4 +1,6 @@
-﻿cbuffer ConstantBuf : register(b0)
+﻿// VS에서 Uniform Buffer의 space 설정
+// https://wiki.libsdl.org/SDL3/SDL_CreateGPUShader#remarks
+cbuffer UBO : register(b0, space1)
 {
     float4x4 MVP;
 }

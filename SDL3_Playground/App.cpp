@@ -2,9 +2,10 @@
 #include <SDL3/SDL.h>
 #include <SDL3_shadercross/SDL_shadercross.h>
 module Playground.App;
-import SimpleEngine.Core;
-import SimpleEngine.Utility;
+
+import SimpleEngine.Prelude;
 import SimpleEngine.Editor.Utility;
+
 import <imgui.h>;
 import <imgui_impl_sdl3.h>;
 import <imgui_impl_sdlgpu3.h>;
@@ -150,7 +151,7 @@ void App::Initialize()
         std::nullopt,
         std::nullopt,
         0,
-        0,
+        1,
         0,
         0
     );
@@ -166,17 +167,19 @@ void App::Initialize()
     );
 
     // 버텍스 입력 설정
-    SDL_GPUVertexBufferDescription vertex_buffer_desc = {
-        .slot = 0,
-        .pitch = sizeof(Vertex),
-        .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX
+    SDL_GPUVertexBufferDescription vertex_buffer_desc[] = {
+        {
+            .slot = 0,
+            .pitch = sizeof(Vertex),
+            .input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX
+        }
     };
 
     SDL_GPUVertexAttribute vertex_attributes[2] = {
         {
             .location = 0, // POSITION
             .buffer_slot = 0,
-            .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, // POSITION
+            .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4, // POSITION
             .offset = offsetof(Vertex, position)
         },
         {
@@ -196,24 +199,29 @@ void App::Initialize()
         .vertex_shader = vertex_shader,
         .fragment_shader = fragment_shader,
         .vertex_input_state = {
-            .vertex_buffer_descriptions = &vertex_buffer_desc,
-            .num_vertex_buffers = 1,
+            .vertex_buffer_descriptions = vertex_buffer_desc,
+            .num_vertex_buffers = std::size(vertex_buffer_desc),
             .vertex_attributes = vertex_attributes,
-            .num_vertex_attributes = 2
+            .num_vertex_attributes = std::size(vertex_attributes),
         },
         .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+        .rasterizer_state = {
+            .fill_mode = SDL_GPU_FILLMODE_FILL,
+            .cull_mode = SDL_GPU_CULLMODE_NONE, // 양면 렌더링
+            // .cull_mode = SDL_GPU_CULLMODE_BACK,
+            .front_face = SDL_GPU_FRONTFACE_CLOCKWISE
+        },
         .target_info = {
             .color_target_descriptions = &color_target_desc,
             .num_color_targets = 1,
         },
     };
-    pipeline_info.rasterizer_state = {
-        .fill_mode = SDL_GPU_FILLMODE_FILL,
-        .cull_mode = SDL_GPU_CULLMODE_NONE,  // 양면 렌더링
-        .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE
-    },
 
     pipeline = SDL_CreateGPUGraphicsPipeline(gpu_device, &pipeline_info);
+    if (!pipeline)
+    {
+        SDL_AssertBreakpoint();
+    }
 
     SDL_ReleaseGPUShader(gpu_device, vertex_shader);
     SDL_ReleaseGPUShader(gpu_device, fragment_shader);
@@ -431,7 +439,7 @@ void App::Render() const
         // Swapchain Texture 가져오기 (화면에 그릴 캔버스 역할)
         SDL_GPUTexture* swapchain_texture;
         // SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, window, &swapchain_texture, nullptr, nullptr);
-        SDL_AcquireGPUSwapchainTexture(command_buffer, window, &swapchain_texture, nullptr, nullptr);
+        SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, window, &swapchain_texture, nullptr, nullptr);
 
         // Rendering
         ImGui::Render();
@@ -455,6 +463,9 @@ void App::Render() const
             target_info.mip_level = 0;
             target_info.layer_or_depth_plane = 0;
             target_info.cycle = false;
+
+            Matrix4x4 mat = Matrix4x4::Identity();
+            SDL_PushGPUVertexUniformData(command_buffer, 0, &mat, sizeof(mat));
 
             SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
             {
