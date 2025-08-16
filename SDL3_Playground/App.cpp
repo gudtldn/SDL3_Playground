@@ -4,7 +4,7 @@
 module Playground.App;
 import SimpleEngine.Core;
 import SimpleEngine.Utility;
-import Playground.Utility;
+import SimpleEngine.Editor.Utility;
 import <imgui.h>;
 import <imgui_impl_sdl3.h>;
 import <imgui_impl_sdlgpu3.h>;
@@ -144,7 +144,7 @@ void App::Initialize()
 
     // create shader
     const std::filesystem::path root = std::filesystem::current_path().parent_path();
-    SDL_GPUShader* vertex_shader = playground::utility::shader_utils::CompileHLSL(
+    SDL_GPUShader* vertex_shader = se::editor::utility::shader_utils::CompileHLSL(
         gpu_device,
         root / "Shaders/Default.vert.hlsl",
         std::nullopt,
@@ -154,7 +154,7 @@ void App::Initialize()
         0,
         0
     );
-    SDL_GPUShader* fragment_shader = playground::utility::shader_utils::CompileHLSL(
+    SDL_GPUShader* fragment_shader = se::editor::utility::shader_utils::CompileHLSL(
         gpu_device,
         root / "Shaders/Default.frag.hlsl",
         std::nullopt,
