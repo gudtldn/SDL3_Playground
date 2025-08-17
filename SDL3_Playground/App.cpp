@@ -42,10 +42,10 @@ struct Vertex
 // constexpr uint16 indices[] = {0, 1, 2};
 
 constexpr Vertex vertices[] = {
-    {{ -0.5f, 0.5f, 0.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }},
-    {{ 0.5f, 0.5f, 0.0f, 1.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }},
-    {{ -0.5f, -0.5f, 0.0f, 1.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }},
-    {{ 0.5f, -0.5f, 0.0f, 1.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }},
+    {{ -0.5f, 0.0f, 0.5f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }},
+    {{ 0.5f, 0.0f, 0.5f, 1.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }},
+    {{ -0.5f, 0.0f, -0.5f, 1.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }},
+    {{ 0.5f, 0.0f, -0.5f, 1.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }},
 };
 
 constexpr uint16 indices[] = { 0, 2, 1, 1, 2, 3 };
@@ -469,7 +469,7 @@ void App::Render() const
                 using namespace se::math;
 
                 Matrix4x4f view_mat = TransformUtility::MakeViewMatrix(
-                    {0.0f, 5.0f, 2.0f}, Vector3f::Zero(), Vector3f::UnitZ()
+                    Vector3f::UnitY() * 5, Vector3f::Zero(), Vector3f::UnitZ()
                 );
                 Matrix4x4f projection_mat = TransformUtility::MakePerspectiveMatrix(
                     Radian{45_degf}, 16.0f / 9.0f, 0.1f, 10000.0f
