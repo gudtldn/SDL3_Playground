@@ -1,6 +1,7 @@
 ﻿module;
 #include <SDL3/SDL.h>
 #include <SDL3_shadercross/SDL_shadercross.h>
+#include <DirectXMath.h>
 module Playground.App;
 
 import SimpleEngine.Prelude;
@@ -464,8 +465,116 @@ void App::Render() const
             target_info.layer_or_depth_plane = 0;
             target_info.cycle = false;
 
-            Matrix4x4 mat = Matrix4x4::Identity();
-            SDL_PushGPUVertexUniformData(command_buffer, 0, &mat, sizeof(mat));
+            auto Matrix4x4_CreatePerspectiveFieldOfView = [](
+                float fieldOfView, float aspectRatio, float nearPlaneDistance, float farPlaneDistance
+            ) -> Matrix4x4f
+            {
+                float num = 1.0f / ((float)SDL_tanf(fieldOfView * 0.5f));
+                return {
+                    num / aspectRatio, 0, 0, 0,
+                    0, num, 0, 0,
+                    0, 0, farPlaneDistance / (nearPlaneDistance - farPlaneDistance), -1,
+                    0, 0, (nearPlaneDistance * farPlaneDistance) / (nearPlaneDistance - farPlaneDistance), 0
+                };
+            };
+
+            auto Matrix4x4_CreateLookAt = [](
+                Vector3f cameraPosition,
+                Vector3f cameraTarget,
+                Vector3f cameraUpVector
+            ) -> Matrix4x4f
+            {
+                Vector3f targetToPosition = {
+                    cameraPosition.x - cameraTarget.x,
+                    cameraPosition.y - cameraTarget.y,
+                    cameraPosition.z - cameraTarget.z
+                };
+                Vector3f vectorA = targetToPosition.GetNormalized();
+                Vector3f vectorB = (cameraUpVector ^ vectorA).GetNormalized();
+                Vector3f vectorC = vectorA ^ vectorB;
+
+                return {
+                    vectorB.x, vectorC.x, vectorA.x, 0,
+                    vectorB.y, vectorC.y, vectorA.y, 0,
+                    vectorB.z, vectorC.z, vectorA.z, 0,
+                    -(vectorB | cameraPosition), -(vectorC | cameraPosition), -(vectorA | cameraPosition), 1
+                };
+            };
+
+            Matrix4x4f mvp;
+            Matrix4x4f mvp_dx;
+            Matrix4x4f my_mvp;
+            {
+                Matrix4x4f view = Matrix4x4_CreateLookAt(
+                    Vector3f(0, 0, -2),
+                    Vector3f::Zero(),
+                    Vector3f(0, 1, 0)
+                );
+
+                Matrix4x4f proj = Matrix4x4_CreatePerspectiveFieldOfView(
+                    Radian(75_degf).value,
+                    16 / static_cast<float>(9),
+                    0.1f,
+                    1000.0f
+                );
+                my_mvp = view * proj;
+
+                using namespace se::math;
+                using namespace DirectX;
+
+                // Matrix4x4 model_mat = Matrix4x4::Identity();
+                Matrix4x4f view_mat = TransformUtility::MakeViewMatrix(
+                    Vector3f::UnitY() * -50.0, Vector3f::Zero(), Vector3f::UnitZ()
+                );
+                Matrix4x4f projection_mat = TransformUtility::MakePerspectiveMatrix(
+                    Radian{45_degf}, 16.0f / 9.0f, 0.1f, 1000.0f
+                );
+                mvp = (projection_mat * view_mat).Transpose();
+
+                {
+                    // const XMMATRIX model_dx = XMMatrixIdentity();
+                    // const XMMATRIX view_dx = XMMatrixLookAtRH(
+                    //     XMVectorSet(0.0f, 50.0f, 0.0f, 1.0f), XMVectorZero(), XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f)
+                    // );
+                    // const XMMATRIX projection_dx = XMMatrixPerspectiveFovRH(
+                    //     Radian{45_degf}.value, 16.0f / 9.0f, 0.1f, 10000.0f
+                    // );
+                    // const XMMATRIX ret = XMMatrixTranspose(projection_dx * view_dx * model_dx);
+
+                    // 동일한 입력값들
+                    XMVECTOR eyePos = XMVectorSet(0.0f, -50.0f, 0.0f, 0.0f); // (0, -50, 0)
+                    XMVECTOR target = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);   // (0, 0, 0)
+                    XMVECTOR upVector = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f); // (0, 0, 1) - Z-up
+
+                    float fovY = XMConvertToRadians(45.0f); // 45도
+                    float aspectRatio = 16.0f / 9.0f;
+                    float nearZ = 0.1f;
+                    float farZ = 1000.0f;
+
+                    // Model matrix (Identity)
+                    XMMATRIX modelMatrix = XMMatrixIdentity();
+
+                    // View matrix - Left-handed (DirectX12 스타일)
+                    XMMATRIX viewMatrix = XMMatrixLookAtLH(eyePos, target, upVector);
+
+                    // Projection matrix - Left-handed (DirectX12 스타일)
+                    XMMATRIX projectionMatrix = XMMatrixPerspectiveFovLH(fovY, aspectRatio, nearZ, farZ);
+
+                    // MVP 계산 (DirectXMath는 row-major 순서)
+                    XMMATRIX mvp1 = modelMatrix * viewMatrix * projectionMatrix;
+
+                    // Transpose (HLSL column-major로 보내기 위해)
+                    XMMATRIX ret = XMMatrixTranspose(mvp1);
+
+                    float* data = mvp_dx.GetData();
+                    for (int i = 0; i < 16; ++i)
+                    {
+                        data[i] = ret.r[i / 4].m128_f32[i % 4];
+                    }
+                }
+            }
+
+            SDL_PushGPUVertexUniformData(command_buffer, 0, &my_mvp, sizeof(my_mvp));
 
             SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
             {

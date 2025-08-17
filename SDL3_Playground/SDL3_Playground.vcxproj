@@ -252,6 +252,9 @@ xcopy /Y /D "$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\b
       <Name>EngineCore</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="..\ThirdParty\SimpleEngine\SimpleEngine.natvis"/>
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
