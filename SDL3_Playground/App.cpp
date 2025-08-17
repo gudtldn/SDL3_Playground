@@ -1,7 +1,6 @@
 ﻿module;
 #include <SDL3/SDL.h>
 #include <SDL3_shadercross/SDL_shadercross.h>
-#include <DirectXMath.h>
 module Playground.App;
 
 import SimpleEngine.Prelude;
@@ -49,7 +48,7 @@ constexpr Vertex vertices[] = {
     {{ 0.5f, -0.5f, 0.0f, 1.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }},
 };
 
-constexpr uint16 indices[] = { 0, 1, 2, 2, 1, 3 };
+constexpr uint16 indices[] = { 0, 2, 1, 1, 2, 3 };
 
 
 App::App()
@@ -209,8 +208,8 @@ void App::Initialize()
         .rasterizer_state = {
             .fill_mode = SDL_GPU_FILLMODE_FILL,
             .cull_mode = SDL_GPU_CULLMODE_NONE, // 양면 렌더링
-            // .cull_mode = SDL_GPU_CULLMODE_BACK,
-            .front_face = SDL_GPU_FRONTFACE_CLOCKWISE
+            // .cull_mode = SDL_GPU_CULLMODE_FRONT,
+            .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE
         },
         .target_info = {
             .color_target_descriptions = &color_target_desc,
@@ -465,97 +464,20 @@ void App::Render() const
             target_info.layer_or_depth_plane = 0;
             target_info.cycle = false;
 
-            auto Matrix4x4_CreatePerspectiveFieldOfView = [](
-                float fieldOfView, float aspectRatio, float nearPlaneDistance, float farPlaneDistance
-            ) -> Matrix4x4f
-            {
-                float num = 1.0f / ((float)SDL_tanf(fieldOfView * 0.5f));
-                return {
-                    num / aspectRatio, 0, 0, 0,
-                    0, num, 0, 0,
-                    0, 0, farPlaneDistance / (nearPlaneDistance - farPlaneDistance), -1,
-                    0, 0, (nearPlaneDistance * farPlaneDistance) / (nearPlaneDistance - farPlaneDistance), 0
-                };
-            };
-
-            auto Matrix4x4_CreateLookAt = [](
-                Vector3f cameraPosition,
-                Vector3f cameraTarget,
-                Vector3f cameraUpVector
-            ) -> Matrix4x4f
-            {
-                Vector3f targetToPosition = {
-                    cameraPosition.x - cameraTarget.x,
-                    cameraPosition.y - cameraTarget.y,
-                    cameraPosition.z - cameraTarget.z
-                };
-                Vector3f vectorA = targetToPosition.GetNormalized();
-                Vector3f vectorB = (cameraUpVector ^ vectorA).GetNormalized();
-                Vector3f vectorC = vectorA ^ vectorB;
-
-                return {
-                    vectorB.x, vectorC.x, vectorA.x, 0,
-                    vectorB.y, vectorC.y, vectorA.y, 0,
-                    vectorB.z, vectorC.z, vectorA.z, 0,
-                    -(vectorB | cameraPosition), -(vectorC | cameraPosition), -(vectorA | cameraPosition), 1
-                };
-            };
-
             Matrix4x4f mvp;
-            Matrix4x4f mvp_dx;
-            Matrix4x4f my_mvp;
             {
                 using namespace se::math;
-                using namespace DirectX;
 
-                // Matrix4x4 model_mat = Matrix4x4::Identity();
                 Matrix4x4f view_mat = TransformUtility::MakeViewMatrix(
-                    Vector3f::UnitZ() * -2.0, Vector3f::Zero(), Vector3f::UnitY()
+                    {0.0f, 5.0f, 2.0f}, Vector3f::Zero(), Vector3f::UnitZ()
                 );
                 Matrix4x4f projection_mat = TransformUtility::MakePerspectiveMatrix(
-                    Radian{45_degf}, 16.0f / 9.0f, 0.1f, 1000.0f
+                    Radian{45_degf}, 16.0f / 9.0f, 0.1f, 10000.0f
                 );
-                mvp = projection_mat * view_mat;
-
-                {
-                    Matrix4x4f view = Matrix4x4_CreateLookAt(
-                        Vector3f(0, 0, -2),
-                        Vector3f::Zero(),
-                        Vector3f(0, 1, 0)
-                    );
-
-                    Matrix4x4f proj = Matrix4x4_CreatePerspectiveFieldOfView(
-                        Radian(45_degf).value,
-                        16.0f / 9.0f,
-                        0.1f,
-                        10000.0f
-                    );
-                    my_mvp = view * proj;
-                }
-
-                {
-                    const XMMATRIX view_dx = XMMatrixLookAtRH(
-                        XMVectorSet(0.0f, 0.0f, -2.0f, 1.0f),
-                        XMVectorZero(),
-                        XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)
-                    );
-                    const XMMATRIX projection_dx = XMMatrixPerspectiveFovRH(
-                        Radian{45_degf}.value, 16.0f / 9.0f, 0.1f, 10000.0f
-                    );
-                    const XMMATRIX ret = view_dx * projection_dx;
-
-                    float* data = mvp_dx.GetData();
-                    for (int i = 0; i < 16; ++i)
-                    {
-                        data[i] = ret.r[i / 4].m128_f32[i % 4];
-                    }
-                }
+                mvp = view_mat * projection_mat;
             }
 
-            // SDL_PushGPUVertexUniformData(command_buffer, 0, &my_mvp, sizeof(my_mvp));
-            // SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp_dx, sizeof(mvp_dx));
             SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(mvp));
-            // TODO: View Matrix 만드는 부분 다시 봐야할듯
 
             SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
             {
