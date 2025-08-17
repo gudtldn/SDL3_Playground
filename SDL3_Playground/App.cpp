@@ -505,66 +505,44 @@ void App::Render() const
             Matrix4x4f mvp_dx;
             Matrix4x4f my_mvp;
             {
-                Matrix4x4f view = Matrix4x4_CreateLookAt(
-                    Vector3f(0, 0, -2),
-                    Vector3f::Zero(),
-                    Vector3f(0, 1, 0)
-                );
-
-                Matrix4x4f proj = Matrix4x4_CreatePerspectiveFieldOfView(
-                    Radian(75_degf).value,
-                    16 / static_cast<float>(9),
-                    0.1f,
-                    1000.0f
-                );
-                my_mvp = view * proj;
-
                 using namespace se::math;
                 using namespace DirectX;
 
                 // Matrix4x4 model_mat = Matrix4x4::Identity();
                 Matrix4x4f view_mat = TransformUtility::MakeViewMatrix(
-                    Vector3f::UnitY() * -50.0, Vector3f::Zero(), Vector3f::UnitZ()
+                    Vector3f::UnitZ() * -2.0, Vector3f::Zero(), Vector3f::UnitY()
                 );
                 Matrix4x4f projection_mat = TransformUtility::MakePerspectiveMatrix(
                     Radian{45_degf}, 16.0f / 9.0f, 0.1f, 1000.0f
                 );
-                mvp = (projection_mat * view_mat).Transpose();
+                mvp = projection_mat * view_mat;
 
                 {
-                    // const XMMATRIX model_dx = XMMatrixIdentity();
-                    // const XMMATRIX view_dx = XMMatrixLookAtRH(
-                    //     XMVectorSet(0.0f, 50.0f, 0.0f, 1.0f), XMVectorZero(), XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f)
-                    // );
-                    // const XMMATRIX projection_dx = XMMatrixPerspectiveFovRH(
-                    //     Radian{45_degf}.value, 16.0f / 9.0f, 0.1f, 10000.0f
-                    // );
-                    // const XMMATRIX ret = XMMatrixTranspose(projection_dx * view_dx * model_dx);
+                    Matrix4x4f view = Matrix4x4_CreateLookAt(
+                        Vector3f(0, 0, -2),
+                        Vector3f::Zero(),
+                        Vector3f(0, 1, 0)
+                    );
 
-                    // 동일한 입력값들
-                    XMVECTOR eyePos = XMVectorSet(0.0f, -50.0f, 0.0f, 0.0f); // (0, -50, 0)
-                    XMVECTOR target = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);   // (0, 0, 0)
-                    XMVECTOR upVector = XMVectorSet(0.0f, 0.0f, 1.0f, 0.0f); // (0, 0, 1) - Z-up
+                    Matrix4x4f proj = Matrix4x4_CreatePerspectiveFieldOfView(
+                        Radian(45_degf).value,
+                        16.0f / 9.0f,
+                        0.1f,
+                        10000.0f
+                    );
+                    my_mvp = view * proj;
+                }
 
-                    float fovY = XMConvertToRadians(45.0f); // 45도
-                    float aspectRatio = 16.0f / 9.0f;
-                    float nearZ = 0.1f;
-                    float farZ = 1000.0f;
-
-                    // Model matrix (Identity)
-                    XMMATRIX modelMatrix = XMMatrixIdentity();
-
-                    // View matrix - Left-handed (DirectX12 스타일)
-                    XMMATRIX viewMatrix = XMMatrixLookAtLH(eyePos, target, upVector);
-
-                    // Projection matrix - Left-handed (DirectX12 스타일)
-                    XMMATRIX projectionMatrix = XMMatrixPerspectiveFovLH(fovY, aspectRatio, nearZ, farZ);
-
-                    // MVP 계산 (DirectXMath는 row-major 순서)
-                    XMMATRIX mvp1 = modelMatrix * viewMatrix * projectionMatrix;
-
-                    // Transpose (HLSL column-major로 보내기 위해)
-                    XMMATRIX ret = XMMatrixTranspose(mvp1);
+                {
+                    const XMMATRIX view_dx = XMMatrixLookAtRH(
+                        XMVectorSet(0.0f, 0.0f, -2.0f, 1.0f),
+                        XMVectorZero(),
+                        XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f)
+                    );
+                    const XMMATRIX projection_dx = XMMatrixPerspectiveFovRH(
+                        Radian{45_degf}.value, 16.0f / 9.0f, 0.1f, 10000.0f
+                    );
+                    const XMMATRIX ret = view_dx * projection_dx;
 
                     float* data = mvp_dx.GetData();
                     for (int i = 0; i < 16; ++i)
@@ -574,7 +552,10 @@ void App::Render() const
                 }
             }
 
-            SDL_PushGPUVertexUniformData(command_buffer, 0, &my_mvp, sizeof(my_mvp));
+            // SDL_PushGPUVertexUniformData(command_buffer, 0, &my_mvp, sizeof(my_mvp));
+            // SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp_dx, sizeof(mvp_dx));
+            SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(mvp));
+            // TODO: View Matrix 만드는 부분 다시 봐야할듯
 
             SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
             {
