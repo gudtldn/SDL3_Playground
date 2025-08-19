@@ -342,6 +342,10 @@ void App::Release()
     }
     windows.clear();
 
+    SDL_ReleaseGPUBuffer(gpu_device, vertex_buffer);
+    SDL_ReleaseGPUBuffer(gpu_device, index_buffer);
+    SDL_ReleaseGPUGraphicsPipeline(gpu_device, pipeline);
+
     // GPU Device Release
     SDL_DestroyGPUDevice(gpu_device);
     gpu_device = nullptr;
