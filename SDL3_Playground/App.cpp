@@ -476,7 +476,7 @@ void App::Render() const
                     Vector3f::UnitY() * 5, Vector3f::Zero(), Vector3f::UnitZ()
                 );
                 Matrix4x4f projection_mat = TransformUtility::MakePerspectiveMatrix(
-                    Radian{45_degf}, 16.0f / 9.0f, 0.1f, 10000.0f
+                    Radian{45_degf}, draw_data->DisplaySize.x / draw_data->DisplaySize.y, 0.1f, 10000.0f
                 );
                 mvp = view_mat * projection_mat;
             }
