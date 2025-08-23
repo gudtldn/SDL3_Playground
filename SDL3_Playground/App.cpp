@@ -5,6 +5,7 @@ module Playground.App;
 
 import SimpleEngine.Prelude;
 import SimpleEngine.Editor.Utility;
+import SimpleEngine.Geometry;
 
 import <imgui.h>;
 import <imgui_impl_sdl3.h>;
@@ -24,32 +25,13 @@ double App::TargetFrameTime = 1.0 / static_cast<double>(TargetFps);
 App* App::Instance = nullptr;
 
 
-struct Vertex
+struct Camera
 {
-    float position[4];  // POSITION 시맨틱
-    float color[4];     // COLOR 시맨틱
+    Vector3f position = Vector3f::Zero();
+    Degree<float> fov = 45_degf;
 };
 
-// constexpr Vertex vertices[] = {
-//     // 위쪽 - 빨간색
-//     {{ 0.0f,  0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-//     // 왼쪽 아래 - 초록색
-//     {{-0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}},
-//     // 오른쪽 아래 - 파란색
-//     {{ 0.5f, -0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}}
-// };
-
-// constexpr uint16 indices[] = {0, 1, 2};
-
-constexpr Vertex vertices[] = {
-    {{ -0.5f, 0.0f, 0.5f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }},
-    {{ 0.5f, 0.0f, 0.5f, 1.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }},
-    {{ -0.5f, 0.0f, -0.5f, 1.0f }, { 0.0f, 0.0f, 1.0f, 1.0f }},
-    {{ 0.5f, 0.0f, -0.5f, 1.0f }, { 1.0f, 1.0f, 1.0f, 1.0f }},
-};
-
-constexpr uint16 indices[] = { 0, 2, 1, 1, 2, 3 };
-
+static Camera my_camera;
 
 App::App()
 {
@@ -179,7 +161,7 @@ void App::Initialize()
         {
             .location = 0, // POSITION
             .buffer_slot = 0,
-            .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4, // POSITION
+            .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, // POSITION
             .offset = offsetof(Vertex, position)
         },
         {
@@ -207,8 +189,8 @@ void App::Initialize()
         .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
         .rasterizer_state = {
             .fill_mode = SDL_GPU_FILLMODE_FILL,
-            .cull_mode = SDL_GPU_CULLMODE_NONE, // 양면 렌더링
-            // .cull_mode = SDL_GPU_CULLMODE_FRONT,
+            // .cull_mode = SDL_GPU_CULLMODE_NONE, // 양면 렌더링
+            .cull_mode = SDL_GPU_CULLMODE_BACK,
             .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE
         },
         .target_info = {
@@ -229,26 +211,26 @@ void App::Initialize()
     // 버텍스 버퍼
     SDL_GPUBufferCreateInfo vertex_buffer_info = {
         .usage = SDL_GPU_BUFFERUSAGE_VERTEX,
-        .size = sizeof(vertices)
+        .size = sizeof(cube_vertices)
     };
     vertex_buffer = SDL_CreateGPUBuffer(gpu_device, &vertex_buffer_info);
 
     // 인덱스 버퍼
     SDL_GPUBufferCreateInfo index_buffer_info = {
         .usage = SDL_GPU_BUFFERUSAGE_INDEX,
-        .size = sizeof(indices)
+        .size = sizeof(cube_indices)
     };
     index_buffer = SDL_CreateGPUBuffer(gpu_device, &index_buffer_info);
 
     SDL_GPUTransferBufferCreateInfo transfer_info = {
         .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
-        .size = sizeof(vertices) + sizeof(indices)
+        .size = sizeof(cube_vertices) + sizeof(cube_indices)
     };
     SDL_GPUTransferBuffer* transfer_buffer = SDL_CreateGPUTransferBuffer(gpu_device, &transfer_info);
 
     void* transfer_data = SDL_MapGPUTransferBuffer(gpu_device, transfer_buffer, false);
-    std::memcpy(transfer_data, vertices, sizeof(vertices));
-    std::memcpy(static_cast<uint8*>(transfer_data) + sizeof(vertices), indices, sizeof(indices));
+    std::memcpy(transfer_data, cube_vertices, sizeof(cube_vertices));
+    std::memcpy(static_cast<uint8*>(transfer_data) + sizeof(cube_vertices), cube_indices, sizeof(cube_indices));
     SDL_UnmapGPUTransferBuffer(gpu_device, transfer_buffer);
 
     SDL_GPUCommandBuffer* upload_cmd = SDL_AcquireGPUCommandBuffer(gpu_device);
@@ -262,20 +244,20 @@ void App::Initialize()
         SDL_GPUBufferRegion vertex_region = {
             .buffer = vertex_buffer,
             .offset = 0,
-            .size = sizeof(vertices)
+            .size = sizeof(cube_vertices)
         };
 
         SDL_UploadToGPUBuffer(copy_pass, &vertex_location, &vertex_region, false);
 
         SDL_GPUTransferBufferLocation index_location = {
             .transfer_buffer = transfer_buffer,
-            .offset = sizeof(vertices)
+            .offset = sizeof(cube_vertices)
         };
 
         SDL_GPUBufferRegion index_region = {
             .buffer = index_buffer,
             .offset = 0,
-            .size = sizeof(indices)
+            .size = sizeof(cube_indices)
         };
 
         SDL_UploadToGPUBuffer(copy_pass, &index_location, &index_region, false);
@@ -431,6 +413,13 @@ void App::Update(float delta_time)
         ImGui::Text("FPS: %.3f", 1 / delta_time);
     }
     ImGui::End();
+
+    ImGui::Begin("Camera");
+    {
+        ImGui::DragFloat3("Position", &my_camera.position.x, 1.0f, -1000.0f, 1000.0f);
+        ImGui::SliderFloat("FOV", &my_camera.fov.value, 0.0f, 180.0f);
+    }
+    ImGui::End();
 }
 
 void App::Render() const
@@ -473,10 +462,10 @@ void App::Render() const
                 using namespace se::math;
 
                 Matrix4x4f view_mat = TransformUtility::MakeViewMatrix(
-                    Vector3f::UnitY() * 5, Vector3f::Zero(), Vector3f::UnitZ()
+                    my_camera.position, Vector3f::Zero(), Vector3f::UnitZ()
                 );
                 Matrix4x4f projection_mat = TransformUtility::MakePerspectiveMatrix(
-                    Radian{45_degf}, draw_data->DisplaySize.x / draw_data->DisplaySize.y, 0.1f, 10000.0f
+                    Radian{my_camera.fov}, draw_data->DisplaySize.x / draw_data->DisplaySize.y, 0.1f, 10000.0f
                 );
                 mvp = view_mat * projection_mat;
             }
@@ -502,9 +491,9 @@ void App::Render() const
                 SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
 
                 // 삼각형 그리기 (인덱스 사용하는 경우)
-                SDL_DrawGPUIndexedPrimitives(render_pass, std::size(indices), 1, 0, 0, 0);
+                SDL_DrawGPUIndexedPrimitives(render_pass, std::size(cube_indices), 1, 0, 0, 0);
                 // 또는 인덱스 없이 그리기
-                // SDL_DrawGPUPrimitives(render_pass, std::size(vertices), 1, 0, 0);
+                // SDL_DrawGPUPrimitives(render_pass, std::size(cube_vertices), 1, 0, 0);
 
                 // Render ImGui
                 if (window_id == main_window_id)
