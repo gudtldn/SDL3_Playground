@@ -49,7 +49,11 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="App.cppm" />
-    <ClCompile Include="Utility.cppm" />
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Utility\ShaderUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Utility\ShaderUtils.cppm" />
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Utility\Utility.cppm" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ThirdParty\imgui\backends\imgui_impl_sdl3.h">
@@ -89,5 +93,8 @@
   <ItemGroup>
     <None Include="..\Shaders\Default.vert.hlsl" />
     <None Include="..\Shaders\Default.frag.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="..\ThirdParty\SimpleEngine\SimpleEngine.natvis" />
   </ItemGroup>
 </Project>
