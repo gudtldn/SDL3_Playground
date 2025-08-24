@@ -25,13 +25,33 @@ double App::TargetFrameTime = 1.0 / static_cast<double>(TargetFps);
 App* App::Instance = nullptr;
 
 
-struct Camera
+struct Model
 {
     Vector3f position = Vector3f::Zero();
-    Degree<float> fov = 45_degf;
+    Rotatorf rotation = Rotatorf::ZeroRotator();
+    Vector3f scale = Vector3f::One();
 };
 
+struct Camera
+{
+    Vector3f position = Vector3f{6, -8, 6};
+    Rotatorf rotation = Rotatorf::ZeroRotator();
+    Degree<float> fov = 90_degf;
+};
+
+static Model my_model;
 static Camera my_camera;
+
+enum class VecType
+{
+    Forward,
+    Right,
+    Up,
+} vec_type = VecType::Forward;
+
+static bool is_neg = false;
+
+
 
 App::App()
 {
@@ -411,12 +431,53 @@ void App::Update(float delta_time)
     {
         ImGui::Text("FPS: %.3f", ImGui::GetIO().Framerate);
         ImGui::Text("FPS: %.3f", 1 / delta_time);
+
+        Rotatorf& rotation = my_model.rotation;
+        ImGui::DragFloat3("Rotation", &rotation.pitch.value, 1.0f, -180.0f, 180.0f);
+
+        Vector3f forward = rotation.GetForwardVector();
+        Vector3f right = rotation.GetRightVector();
+        Vector3f up = rotation.GetUpVector();
+
+        ImGui::SliderFloat3("F", &forward.x, -1.0f, 1.0f);
+        ImGui::SliderFloat3("R", &right.x, -1.0f, 1.0f);
+        ImGui::SliderFloat3("U", &up.x, -1.0f, 1.0f);
+    }
+    ImGui::End();
+
+    ImGui::Begin("Model");
+    {
+        ImGui::DragFloat3("Position", &my_model.position.x, 1.0f, -1000.0f, 1000.0f);
+        ImGui::DragFloat3("Rotation", &my_model.rotation.pitch.value, 1.0f, -180.0f, 180.0f);
+        ImGui::DragFloat3("Scale", &my_model.scale.x, 0.1f, 0.1f, 1000.0f);
+
+        ImGui::SeparatorText("Second Model");
+
+        ImGui::Checkbox("Neg", &is_neg);
+
+        if (ImGui::Button("Forward"))
+        {
+            vec_type = VecType::Forward;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Right"))
+        {
+            vec_type = VecType::Right;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Up"))
+        {
+            vec_type = VecType::Up;
+        }
+
+        ImGui::Text("Type: %s", vec_type == VecType::Forward ? "Forward" : vec_type == VecType::Right ? "Right" : "Up");
     }
     ImGui::End();
 
     ImGui::Begin("Camera");
     {
         ImGui::DragFloat3("Position", &my_camera.position.x, 1.0f, -1000.0f, 1000.0f);
+        ImGui::DragFloat3("Rotation", &my_camera.rotation.pitch.value, 1.0f, -180.0f, 180.0f);
         ImGui::SliderFloat("FOV", &my_camera.fov.value, 0.0f, 180.0f);
     }
     ImGui::End();
@@ -457,43 +518,169 @@ void App::Render() const
             target_info.layer_or_depth_plane = 0;
             target_info.cycle = false;
 
-            Matrix4x4f mvp;
-            {
-                using namespace se::math;
-
-                Matrix4x4f view_mat = TransformUtility::MakeViewMatrix(
-                    my_camera.position, Vector3f::Zero(), Vector3f::UnitZ()
-                );
-                Matrix4x4f projection_mat = TransformUtility::MakePerspectiveMatrix(
-                    Radian{my_camera.fov}, draw_data->DisplaySize.x / draw_data->DisplaySize.y, 0.1f, 10000.0f
-                );
-                mvp = view_mat * projection_mat;
-            }
-
-            SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(mvp));
-
             SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
             {
                 SDL_BindGPUGraphicsPipeline(render_pass, pipeline);
 
-                // Vertex Buffer 바인딩
-                const SDL_GPUBufferBinding vertex_binding = {
-                    .buffer = vertex_buffer,
-                    .offset = 0
-                };
-                SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_binding, 1);
+                Matrix4x4f mvp;
+                Matrix4x4f view_mat;
+                Matrix4x4f projection_mat;
 
-                // Index Buffer 바인딩
-                const SDL_GPUBufferBinding index_binding = {
-                    .buffer = index_buffer,
-                    .offset = 0
-                };
-                SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+                {
+                    using namespace se::math;
 
-                // 삼각형 그리기 (인덱스 사용하는 경우)
-                SDL_DrawGPUIndexedPrimitives(render_pass, std::size(cube_indices), 1, 0, 0, 0);
-                // 또는 인덱스 없이 그리기
-                // SDL_DrawGPUPrimitives(render_pass, std::size(cube_vertices), 1, 0, 0);
+                    view_mat = TransformUtility::MakeViewMatrix(
+                        my_camera.position, Vector3f::Zero(), Vector3f::UnitZ()
+                    );
+                    projection_mat = TransformUtility::MakePerspectiveMatrix(
+                        Radian{my_camera.fov}, draw_data->DisplaySize.x / draw_data->DisplaySize.y, 0.1f, 10000.0f
+                    );
+                }
+
+                auto asd = [](const Quaternionf& quaternion)
+                {
+                    const float x = quaternion.x;
+                    const float y = quaternion.y;
+                    const float z = quaternion.z;
+                    const float w = quaternion.w;
+
+                    const float xx = x * x;
+                    const float yy = y * y;
+                    const float zz = z * z;
+                    const float xy = x * y;
+                    const float xz = x * z;
+                    const float yz = y * z;
+                    const float wx = w * x;
+                    const float wy = w * y;
+                    const float wz = w * z;
+
+                    // Row-major 3x3 rotation block for row-vector (p' = p M)
+                    // return Matrix4x4f{
+                    //     1 - 2 * (yy + zz), 2 * (xy + wz), 2 * (xz - wy), 0,
+                    //     2 * (xy - wz), 1 - 2 * (xx + zz), 2 * (yz + wx), 0,
+                    //     2 * (xz + wy), 2 * (yz - wx), 1 - 2 * (xx + yy), 0,
+                    //     0, 0, 0, 1
+                    // };
+                    // return Matrix4x4f{
+                    //     1 - 2 * (yy + zz), 2 * (xy - wz), 2 * (xz + wy), 0,
+                    //     2 * (xy + wz), 1 - 2 * (xx + zz), 2 * (yz - wx), 0,
+                    //     2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (xx + yy), 0,
+                    //     0, 0, 0, 1
+                    // };
+                    // return Matrix4x4f{
+                    //     1 - 2 * (yy + zz), 2 * (xy - wz), 2 * (xz + wy), 0, // Pitch/Yaw를 위한 항 (Block 2)
+                    //     2 * (xy + wz), 1 - 2 * (xx + zz), 2 * (yz - wx), 0, // Pitch/Yaw를 위한 항 (Block 2)
+                    //     2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (xx + yy), 0, // Roll을 위한 항 (Block 1) - **이 부분이 핵심**
+                    //     0, 0, 0, 1
+                    // };
+                    return Matrix4x4f{
+                        1 - 2 * (yy + zz), 2 * (xy + wz), 2 * (xz - wy), 0,
+                        2 * (xy - wz), 1 - 2 * (xx + zz), 2 * (yz + wx), 0,
+                        2 * (xz + wy), 2 * (yz - wx), 1 - 2 * (xx + yy), 0,
+                        0, 0, 0, 1
+                    };
+                };
+
+                {
+                    {
+                        using namespace se::math;
+
+                        Vector3f translation = my_model.position;
+                        Rotatorf& rotation = my_model.rotation;
+
+                        Quaternionf q = rotation.ToQuaternion();
+                        Rotatorf test_rot = q.ToRotator();
+
+                        // Matrix4x4f rot_mat = TransformUtility::MakeFromRotation(rotation);
+                        Matrix4x4f rot_mat = TransformUtility::MakeFromRotation(q);
+
+                        auto to_vec3 = [](const Vector4f& v)
+                        {
+                            return Vector3f{v.x, v.y, v.z};
+                        };
+
+                        switch (vec_type)
+                        {
+                        case VecType::Forward:
+                            // translation += test_rot.GetForwardVector() * 5.0f;
+                            translation += to_vec3(Vector4f(Vector3f::UnitY(), 1.0f) * rot_mat) * 5.0f;
+                            break;
+                        case VecType::Right:
+                            // translation += test_rot.GetRightVector() * 5.0f;
+                            translation += to_vec3(Vector4f(Vector3f::UnitX(), 1.0f) * rot_mat) * 5.0f;
+                            break;
+                        case VecType::Up:
+                            // translation += test_rot.GetUpVector() * 5.0f;
+                            translation += to_vec3(Vector4f(Vector3f::UnitZ(), 1.0f) * rot_mat) * 5.0f;
+                            break;
+                        }
+
+                        if (is_neg)
+                        {
+                            translation *= -1.0f;
+                        }
+
+                        Matrix4x4f model_mat = TransformUtility::MakeModelMatrix(
+                            translation,
+                            my_model.rotation,
+                            my_model.scale
+                        );
+                        mvp = model_mat * view_mat * projection_mat;
+                    }
+
+                    SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(mvp));
+
+                    // Vertex Buffer 바인딩
+                    const SDL_GPUBufferBinding vertex_binding = {
+                        .buffer = vertex_buffer,
+                        .offset = 0
+                    };
+                    SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_binding, 1);
+
+                    // Index Buffer 바인딩
+                    const SDL_GPUBufferBinding index_binding = {
+                        .buffer = index_buffer,
+                        .offset = 0
+                    };
+                    SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+
+                    // 삼각형 그리기 (인덱스 사용하는 경우)
+                    SDL_DrawGPUIndexedPrimitives(render_pass, std::size(cube_indices), 1, 0, 0, 0);
+                    // 또는 인덱스 없이 그리기
+                    // SDL_DrawGPUPrimitives(render_pass, std::size(cube_vertices), 1, 0, 0);
+                }
+
+                {
+                    {
+                        using namespace se::math;
+
+                        Matrix4x4f model_mat = TransformUtility::MakeModelMatrix(
+                            my_model.position, my_model.rotation, my_model.scale
+                        );
+                        mvp = model_mat * view_mat * projection_mat;
+                    }
+
+                    SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(mvp));
+
+                    // Vertex Buffer 바인딩
+                    const SDL_GPUBufferBinding vertex_binding = {
+                        .buffer = vertex_buffer,
+                        .offset = 0
+                    };
+                    SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_binding, 1);
+
+                    // Index Buffer 바인딩
+                    const SDL_GPUBufferBinding index_binding = {
+                        .buffer = index_buffer,
+                        .offset = 0
+                    };
+                    SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+
+                    // 삼각형 그리기 (인덱스 사용하는 경우)
+                    SDL_DrawGPUIndexedPrimitives(render_pass, std::size(cube_indices), 1, 0, 0, 0);
+                    // 또는 인덱스 없이 그리기
+                    // SDL_DrawGPUPrimitives(render_pass, std::size(cube_vertices), 1, 0, 0);
+                }
 
                 // Render ImGui
                 if (window_id == main_window_id)
