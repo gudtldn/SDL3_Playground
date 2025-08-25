@@ -442,6 +442,9 @@ void App::Update(float delta_time)
         ImGui::SliderFloat3("F", &forward.x, -1.0f, 1.0f);
         ImGui::SliderFloat3("R", &right.x, -1.0f, 1.0f);
         ImGui::SliderFloat3("U", &up.x, -1.0f, 1.0f);
+
+        Quaternionf q = rotation.ToQuaternion();
+        ImGui::SliderFloat4("Q", &q.x, -1.0f, 1.0f);
     }
     ImGui::End();
 
@@ -520,166 +523,105 @@ void App::Render() const
 
             SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
             {
+                auto render_primitive = [&](const Matrix4x4f& mvp)
+                {
+                    SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(mvp));
+
+                    // Vertex Buffer 바인딩
+                    const SDL_GPUBufferBinding vertex_binding = {
+                        .buffer = vertex_buffer,
+                        .offset = 0
+                    };
+                    SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_binding, 1);
+
+                    // Index Buffer 바인딩
+                    const SDL_GPUBufferBinding index_binding = {
+                        .buffer = index_buffer,
+                        .offset = 0
+                    };
+                    SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+
+                    // 삼각형 그리기 (인덱스 사용하는 경우)
+                    SDL_DrawGPUIndexedPrimitives(render_pass, std::size(cube_indices), 1, 0, 0, 0);
+                    // 또는 인덱스 없이 그리기
+                    // SDL_DrawGPUPrimitives(render_pass, std::size(cube_vertices), 1, 0, 0);
+                };
+
                 SDL_BindGPUGraphicsPipeline(render_pass, pipeline);
 
-                Matrix4x4f mvp;
-                Matrix4x4f view_mat;
-                Matrix4x4f projection_mat;
+                Matrix4x4f vp_mat;
+
+                // make view *
+                {
+                    using namespace se::math;
+
+                    Matrix4x4f view_mat = TransformUtility::MakeViewMatrix(
+                        my_camera.position, Vector3f::Zero(), Vector3f::UnitZ()
+                    );
+                    Matrix4x4f projection_mat = TransformUtility::MakePerspectiveMatrix(
+                        Radian{ my_camera.fov }, draw_data->DisplaySize.x / draw_data->DisplaySize.y, 0.1f, 10000.0f
+                    );
+
+                    vp_mat = view_mat * projection_mat;
+                }
 
                 {
                     using namespace se::math;
 
-                    view_mat = TransformUtility::MakeViewMatrix(
-                        my_camera.position, Vector3f::Zero(), Vector3f::UnitZ()
+                    Rotatorf rotation = my_model.rotation;
+                    Vector3f dir = vec_type == VecType::Forward
+                                       ? rotation.GetForwardVector()
+                                       : vec_type == VecType::Right
+                                       ? rotation.GetRightVector()
+                                       : rotation.GetUpVector();
+                    dir *= is_neg ? -1.0f : 1.0f;
+
+                    Matrix4x4f model_mat = TransformUtility::MakeModelMatrix(
+                        my_model.position + dir * 5.0f,
+                        rotation,
+                        my_model.scale
                     );
-                    projection_mat = TransformUtility::MakePerspectiveMatrix(
-                        Radian{my_camera.fov}, draw_data->DisplaySize.x / draw_data->DisplaySize.y, 0.1f, 10000.0f
-                    );
-                }
-
-                auto asd = [](const Quaternionf& quaternion)
-                {
-                    const float x = quaternion.x;
-                    const float y = quaternion.y;
-                    const float z = quaternion.z;
-                    const float w = quaternion.w;
-
-                    const float xx = x * x;
-                    const float yy = y * y;
-                    const float zz = z * z;
-                    const float xy = x * y;
-                    const float xz = x * z;
-                    const float yz = y * z;
-                    const float wx = w * x;
-                    const float wy = w * y;
-                    const float wz = w * z;
-
-                    // Row-major 3x3 rotation block for row-vector (p' = p M)
-                    // return Matrix4x4f{
-                    //     1 - 2 * (yy + zz), 2 * (xy + wz), 2 * (xz - wy), 0,
-                    //     2 * (xy - wz), 1 - 2 * (xx + zz), 2 * (yz + wx), 0,
-                    //     2 * (xz + wy), 2 * (yz - wx), 1 - 2 * (xx + yy), 0,
-                    //     0, 0, 0, 1
-                    // };
-                    // return Matrix4x4f{
-                    //     1 - 2 * (yy + zz), 2 * (xy - wz), 2 * (xz + wy), 0,
-                    //     2 * (xy + wz), 1 - 2 * (xx + zz), 2 * (yz - wx), 0,
-                    //     2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (xx + yy), 0,
-                    //     0, 0, 0, 1
-                    // };
-                    // return Matrix4x4f{
-                    //     1 - 2 * (yy + zz), 2 * (xy - wz), 2 * (xz + wy), 0, // Pitch/Yaw를 위한 항 (Block 2)
-                    //     2 * (xy + wz), 1 - 2 * (xx + zz), 2 * (yz - wx), 0, // Pitch/Yaw를 위한 항 (Block 2)
-                    //     2 * (xz - wy), 2 * (yz + wx), 1 - 2 * (xx + yy), 0, // Roll을 위한 항 (Block 1) - **이 부분이 핵심**
-                    //     0, 0, 0, 1
-                    // };
-                    return Matrix4x4f{
-                        1 - 2 * (yy + zz), 2 * (xy + wz), 2 * (xz - wy), 0,
-                        2 * (xy - wz), 1 - 2 * (xx + zz), 2 * (yz + wx), 0,
-                        2 * (xz + wy), 2 * (yz - wx), 1 - 2 * (xx + yy), 0,
-                        0, 0, 0, 1
-                    };
-                };
-
-                {
-                    {
-                        using namespace se::math;
-
-                        Vector3f translation = my_model.position;
-                        Rotatorf& rotation = my_model.rotation;
-
-                        Quaternionf q = rotation.ToQuaternion();
-                        Rotatorf test_rot = q.ToRotator();
-
-                        // Matrix4x4f rot_mat = TransformUtility::MakeFromRotation(rotation);
-                        Matrix4x4f rot_mat = TransformUtility::MakeFromRotation(q);
-
-                        auto to_vec3 = [](const Vector4f& v)
-                        {
-                            return Vector3f{v.x, v.y, v.z};
-                        };
-
-                        switch (vec_type)
-                        {
-                        case VecType::Forward:
-                            // translation += test_rot.GetForwardVector() * 5.0f;
-                            translation += to_vec3(Vector4f(Vector3f::UnitY(), 1.0f) * rot_mat) * 5.0f;
-                            break;
-                        case VecType::Right:
-                            // translation += test_rot.GetRightVector() * 5.0f;
-                            translation += to_vec3(Vector4f(Vector3f::UnitX(), 1.0f) * rot_mat) * 5.0f;
-                            break;
-                        case VecType::Up:
-                            // translation += test_rot.GetUpVector() * 5.0f;
-                            translation += to_vec3(Vector4f(Vector3f::UnitZ(), 1.0f) * rot_mat) * 5.0f;
-                            break;
-                        }
-
-                        if (is_neg)
-                        {
-                            translation *= -1.0f;
-                        }
-
-                        Matrix4x4f model_mat = TransformUtility::MakeModelMatrix(
-                            translation,
-                            my_model.rotation,
-                            my_model.scale
-                        );
-                        mvp = model_mat * view_mat * projection_mat;
-                    }
-
-                    SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(mvp));
-
-                    // Vertex Buffer 바인딩
-                    const SDL_GPUBufferBinding vertex_binding = {
-                        .buffer = vertex_buffer,
-                        .offset = 0
-                    };
-                    SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_binding, 1);
-
-                    // Index Buffer 바인딩
-                    const SDL_GPUBufferBinding index_binding = {
-                        .buffer = index_buffer,
-                        .offset = 0
-                    };
-                    SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
-
-                    // 삼각형 그리기 (인덱스 사용하는 경우)
-                    SDL_DrawGPUIndexedPrimitives(render_pass, std::size(cube_indices), 1, 0, 0, 0);
-                    // 또는 인덱스 없이 그리기
-                    // SDL_DrawGPUPrimitives(render_pass, std::size(cube_vertices), 1, 0, 0);
+                    render_primitive(model_mat * vp_mat);
                 }
 
                 {
-                    {
-                        using namespace se::math;
+                    using namespace se::math;
 
-                        Matrix4x4f model_mat = TransformUtility::MakeModelMatrix(
-                            my_model.position, my_model.rotation, my_model.scale
-                        );
-                        mvp = model_mat * view_mat * projection_mat;
-                    }
+                    Matrix4x4f model_mat = TransformUtility::MakeModelMatrix(
+                        my_model.position, my_model.rotation, my_model.scale
+                    );
+                    render_primitive(model_mat * vp_mat);
+                }
 
-                    SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(mvp));
+                {
+                    using namespace se::math;
 
-                    // Vertex Buffer 바인딩
-                    const SDL_GPUBufferBinding vertex_binding = {
-                        .buffer = vertex_buffer,
-                        .offset = 0
-                    };
-                    SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_binding, 1);
+                    Quaternionf quaternion = my_model.rotation.ToQuaternion();
+                    Vector3f dir = vec_type == VecType::Forward
+                                       ? quaternion.GetForwardVector()
+                                       : vec_type == VecType::Right
+                                       ? quaternion.GetRightVector()
+                                       : quaternion.GetUpVector();
+                    dir *= is_neg ? -1.0f : 1.0f;
 
-                    // Index Buffer 바인딩
-                    const SDL_GPUBufferBinding index_binding = {
-                        .buffer = index_buffer,
-                        .offset = 0
-                    };
-                    SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+                    Vector3f translation = my_model.position + Vector3f::UnitX() * 5.0f;
+                    Matrix4x4f model_mat = TransformUtility::MakeModelMatrix(
+                        translation + dir * 5.0f,
+                        quaternion,
+                        my_model.scale
+                    );
+                    render_primitive(model_mat * vp_mat);
+                }
 
-                    // 삼각형 그리기 (인덱스 사용하는 경우)
-                    SDL_DrawGPUIndexedPrimitives(render_pass, std::size(cube_indices), 1, 0, 0, 0);
-                    // 또는 인덱스 없이 그리기
-                    // SDL_DrawGPUPrimitives(render_pass, std::size(cube_vertices), 1, 0, 0);
+                {
+                    using namespace se::math;
+
+                    Matrix4x4f model_mat = TransformUtility::MakeModelMatrix(
+                        my_model.position + Vector3f::UnitX() * 5.0f,
+                        my_model.rotation.ToQuaternion(),
+                        my_model.scale
+                    );
+                    render_primitive(model_mat * vp_mat);
                 }
 
                 // Render ImGui
