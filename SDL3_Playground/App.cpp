@@ -3,8 +3,12 @@
 #include <SDL3_shadercross/SDL_shadercross.h>
 module Playground.App;
 
+#pragma warning(disable: 4996) // deprecated warning
+
+
 import SimpleEngine.Prelude;
 import SimpleEngine.Editor.Utility;
+import SimpleEngine.Components;
 import SimpleEngine.Geometry;
 
 import <imgui.h>;
@@ -25,32 +29,37 @@ double App::TargetFrameTime = 1.0 / static_cast<double>(TargetFps);
 App* App::Instance = nullptr;
 
 
-struct Model
-{
-    Vector3f position = Vector3f::Zero();
-    Rotatorf rotation = Rotatorf::ZeroRotator();
-    Vector3f scale = Vector3f::One();
-};
-
 struct Camera
 {
-    Vector3f position = Vector3f{6, -8, 6};
-    Rotatorf rotation = Rotatorf::ZeroRotator();
+    Vector3f position = Vector3f{ 0, -8, 6 };
+    Quaternionf rotation = Quaternionf::Identity();
+
+    Degree<float> pitch = 0_degf;
+    Degree<float> yaw = 0_degf;
+
+    float camera_speed = 10.0f;
+    float sensitivity = 0.2f;
     Degree<float> fov = 90_degf;
 };
 
-static Model my_model;
+enum class MeshTypes : uint8
+{
+    Circle,
+    Corn,
+    Cube,
+    Cylinder,
+    Plane,
+    Torus,
+};
+
+struct MeshComponent
+{
+    MeshTypes type = MeshTypes::Cube;
+};
+
 static Camera my_camera;
 
-enum class VecType
-{
-    Forward,
-    Right,
-    Up,
-} vec_type = VecType::Forward;
-
-static bool is_neg = false;
-
+static se::core::ecs::World world;
 
 
 App::App()
@@ -245,6 +254,12 @@ void App::Initialize()
     SDL_GPUTransferBufferCreateInfo transfer_info = {
         .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
         .size = sizeof(cube_vertices) + sizeof(cube_indices)
+        // .size = sizeof(circle_vertices) + sizeof(circle_indices)
+        // + sizeof(corn_vertices) + sizeof(corn_indices)
+        // + sizeof(cube_vertices) + sizeof(cube_indices)
+        // + sizeof(cylinder_vertices) + sizeof(cylinder_indices)
+        // + sizeof(plane_vertices) + sizeof(plane_indices)
+        // + sizeof(torus_vertices) + sizeof(torus_indices)
     };
     SDL_GPUTransferBuffer* transfer_buffer = SDL_CreateGPUTransferBuffer(gpu_device, &transfer_info);
 
@@ -387,6 +402,47 @@ void App::ProcessPlatformEvents()
 
 void App::Update(float delta_time)
 {
+    // Camera Input
+    float x_delta, y_delta;
+    SDL_MouseButtonFlags m_buttons = SDL_GetRelativeMouseState(&x_delta, &y_delta);
+    const bool* keys = SDL_GetKeyboardState(nullptr);
+
+    if (m_buttons & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT))
+    {
+        my_camera.yaw -= x_delta * my_camera.sensitivity;
+        *my_camera.pitch = se::math::MathUtility::Clamp(*my_camera.pitch - y_delta * my_camera.sensitivity, -89.0f, 89.0f);
+
+        const Quaternionf yaw_q = Quaternionf::FromAxisAngle(Vector3f::UnitZ(), Radian{ my_camera.yaw });
+        const Quaternionf pitch_q = Quaternionf::FromAxisAngle(Vector3f::UnitX(), Radian{ my_camera.pitch });
+
+        my_camera.rotation = yaw_q * pitch_q;
+
+        if (keys[SDL_SCANCODE_W])
+        {
+            my_camera.position += my_camera.rotation.GetForwardVector() * my_camera.camera_speed * delta_time;
+        }
+        if (keys[SDL_SCANCODE_S])
+        {
+            my_camera.position -= my_camera.rotation.GetForwardVector() * my_camera.camera_speed * delta_time;
+        }
+        if (keys[SDL_SCANCODE_D])
+        {
+            my_camera.position += my_camera.rotation.GetRightVector() * my_camera.camera_speed * delta_time;
+        }
+        if (keys[SDL_SCANCODE_A])
+        {
+            my_camera.position -= my_camera.rotation.GetRightVector() * my_camera.camera_speed * delta_time;
+        }
+        if (keys[SDL_SCANCODE_E])
+        {
+            my_camera.position += Vector3f::UnitZ() * my_camera.camera_speed * delta_time;
+        }
+        if (keys[SDL_SCANCODE_Q])
+        {
+            my_camera.position -= Vector3f::UnitZ() * my_camera.camera_speed * delta_time;
+        }
+    }
+
     // Start the Dear ImGui frame
     ImGui_ImplSDLGPU3_NewFrame();
     ImGui_ImplSDL3_NewFrame();
@@ -394,7 +450,7 @@ void App::Update(float delta_time)
 
     ImGui::ShowDemoWindow();
 
-    ImGui::Begin("asdasd");
+    ImGui::Begin("Window Pannal");
     {
         static std::array<char, 256> window_title = {};
         static int32 window_x = 100;
@@ -427,60 +483,121 @@ void App::Update(float delta_time)
     }
     ImGui::End();
 
-    ImGui::Begin("Test");
+    ImGui::Begin("World");
     {
         ImGui::Text("FPS: %.3f", ImGui::GetIO().Framerate);
         ImGui::Text("FPS: %.3f", 1 / delta_time);
 
-        Rotatorf& rotation = my_model.rotation;
-        ImGui::DragFloat3("Rotation", &rotation.pitch.value, 1.0f, -180.0f, 180.0f);
-
-        Vector3f forward = rotation.GetForwardVector();
-        Vector3f right = rotation.GetRightVector();
-        Vector3f up = rotation.GetUpVector();
-
-        ImGui::SliderFloat3("F", &forward.x, -1.0f, 1.0f);
-        ImGui::SliderFloat3("R", &right.x, -1.0f, 1.0f);
-        ImGui::SliderFloat3("U", &up.x, -1.0f, 1.0f);
-
-        Quaternionf q = rotation.ToQuaternion();
-        ImGui::SliderFloat4("Q", &q.x, -1.0f, 1.0f);
-    }
-    ImGui::End();
-
-    ImGui::Begin("Model");
-    {
-        ImGui::DragFloat3("Position", &my_model.position.x, 1.0f, -1000.0f, 1000.0f);
-        ImGui::DragFloat3("Rotation", &my_model.rotation.pitch.value, 1.0f, -180.0f, 180.0f);
-        ImGui::DragFloat3("Scale", &my_model.scale.x, 0.1f, 0.1f, 1000.0f);
-
-        ImGui::SeparatorText("Second Model");
-
-        ImGui::Checkbox("Neg", &is_neg);
-
-        if (ImGui::Button("Forward"))
+        static int32 selected_entity = -1;
+        static int32 selected_component = 0;
+        static std::vector component_names
         {
-            vec_type = VecType::Forward;
+            "TransformComponent", "MeshComponent"
+        };
+        std::vector<se::core::ecs::Entity> entities = world.GetAliveEntities();
+
+        ImGui::SeparatorText("Entity Pannal");
+        if (ImGui::Button("Create Entity"))
+        {
+            world.CreateEntity()
+                 .AddComponent<TransformComponent>();
         }
         ImGui::SameLine();
-        if (ImGui::Button("Right"))
+        if (ImGui::Button("Delete Entity") || keys[SDL_SCANCODE_DELETE])
         {
-            vec_type = VecType::Right;
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Up"))
-        {
-            vec_type = VecType::Up;
+            if (selected_entity >= 0 && selected_entity < entities.size())
+            {
+                world.DestroyEntity(entities[selected_entity]);
+                selected_entity = -1;
+            }
         }
 
-        ImGui::Text("Type: %s", vec_type == VecType::Forward ? "Forward" : vec_type == VecType::Right ? "Right" : "Up");
+        ImGui::Combo("##AddComponentCombo", &selected_component, component_names.data(), static_cast<int>(component_names.size()));
+        ImGui::SameLine();
+        if (ImGui::Button("Add Component"))
+        {
+            if (selected_entity >= 0 && selected_entity < entities.size())
+            {
+                if (selected_component == 0)
+                {
+                    world.AddComponent<TransformComponent>(entities[selected_entity]);
+                }
+                else if (selected_component == 1)
+                {
+                    world.AddComponent<MeshComponent>(entities[selected_entity]);
+                }
+            }
+        }
+
+        std::vector<std::string> entity_names;
+        std::ranges::for_each(entities, [&entity_names](se::core::ecs::Entity entity)
+        {
+            entity_names.push_back(std::format("Entity {}, Gen: {}", entity.GetId(), entity.GetGeneration()));
+        });
+
+        std::vector<const char*> temp_entity_names;
+        std::ranges::for_each(entity_names, [&temp_entity_names](const std::string& name)
+        {
+            temp_entity_names.push_back(name.c_str());
+        });
+
+        ImGui::SeparatorText("Entity List");
+        ImGui::ListBox(
+            "##EntityList",
+            &selected_entity,
+            temp_entity_names.data(),
+            static_cast<int>(entity_names.size()),
+            10
+        );
+
+        ImGui::SeparatorText("Entity Property");
+        if (selected_entity >= 0 && selected_entity < entities.size())
+        {
+            const se::core::ecs::Entity entity = entities[selected_entity];
+            ImGui::Text(std::format("Selected Entity ID: {}", entity.GetId()).c_str());
+
+            if (Optional<TransformComponent&> transform_comp_opt = world.TryGetComponent<TransformComponent>(entity))
+            {
+                auto& [quat, position, scale] = transform_comp_opt.Value();
+                ImGui::DragScalarN("Position", ImGuiDataType_Double, &position.x, 3, 1.0f);
+                Rotator rotator = quat.ToRotator();
+                ImGui::DragScalarN("Rotation", ImGuiDataType_Double, &rotator.pitch.value, 3, 1.0f);
+                quat = rotator.ToQuaternion();
+                ImGui::DragScalarN("Scale", ImGuiDataType_Double, &scale.x, 3, 1.0f);
+            }
+
+            if (Optional<MeshComponent&> mesh_comp_opt = world.TryGetComponent<MeshComponent>(entity))
+            {
+                MeshComponent& mesh_comp = mesh_comp_opt.Value();
+
+                int idx = static_cast<int>(mesh_comp.type);
+                const char* mesh_names[] = { "Circle", "Corn", "Cube", "Cylinder", "Plane", "Torus", };
+                ImGui::Combo("Mesh", &idx, mesh_names, std::size(mesh_names));
+                mesh_comp.type = static_cast<MeshTypes>(idx);
+            }
+        }
+        else
+        {
+            ImGui::Text("No Selected Entity");
+        }
     }
     ImGui::End();
 
     ImGui::Begin("Camera");
     {
+        if (ImGui::Button("Reset Camera"))
+        {
+            my_camera.position = Vector3f::Zero();
+            my_camera.rotation = Quaternionf::Identity();
+            my_camera.yaw = 0.0_degf;
+            my_camera.pitch = 0.0_degf;
+        }
         ImGui::DragFloat3("Position", &my_camera.position.x, 1.0f, -1000.0f, 1000.0f);
-        ImGui::DragFloat3("Rotation", &my_camera.rotation.pitch.value, 1.0f, -180.0f, 180.0f);
+        Rotatorf rotator = my_camera.rotation.ToRotator();
+        ImGui::DragFloat3("Rotation", &rotator.pitch.value, 1.0f, -180.0f, 180.0f);
+        my_camera.rotation = rotator.ToQuaternion();
+        ImGui::SliderFloat("Camera Speed", &my_camera.camera_speed, 0.001f, 1000.0f);
+        ImGui::SliderFloat("Sensitivity", &my_camera.sensitivity, 0.001f, 10.0f);
         ImGui::SliderFloat("FOV", &my_camera.fov.value, 0.0f, 180.0f);
     }
     ImGui::End();
@@ -550,13 +667,11 @@ void App::Render() const
                 SDL_BindGPUGraphicsPipeline(render_pass, pipeline);
 
                 Matrix4x4f vp_mat;
-
-                // make view *
                 {
                     using namespace se::math;
 
                     Matrix4x4f view_mat = TransformUtility::MakeViewMatrix(
-                        my_camera.position, Vector3f::Zero(), Vector3f::UnitZ()
+                        my_camera.position, my_camera.position + my_camera.rotation.GetForwardVector(), Vector3f::UnitZ()
                     );
                     Matrix4x4f projection_mat = TransformUtility::MakePerspectiveMatrix(
                         Radian{ my_camera.fov }, draw_data->DisplaySize.x / draw_data->DisplaySize.y, 0.1f, 10000.0f
@@ -565,64 +680,23 @@ void App::Render() const
                     vp_mat = view_mat * projection_mat;
                 }
 
+                world.Query<TransformComponent>().ForEach([&](se::core::ecs::Entity _, const TransformComponent& transform_comp)
                 {
                     using namespace se::math;
 
-                    Rotatorf rotation = my_model.rotation;
-                    Vector3f dir = vec_type == VecType::Forward
-                                       ? rotation.GetForwardVector()
-                                       : vec_type == VecType::Right
-                                       ? rotation.GetRightVector()
-                                       : rotation.GetUpVector();
-                    dir *= is_neg ? -1.0f : 1.0f;
-
-                    Matrix4x4f model_mat = TransformUtility::MakeModelMatrix(
-                        my_model.position + dir * 5.0f,
-                        rotation,
-                        my_model.scale
+                    Matrix4x4 modeld = TransformUtility::MakeModelMatrix(
+                        transform_comp.position, transform_comp.rotation, transform_comp.scale
                     );
-                    render_primitive(model_mat * vp_mat);
-                }
 
-                {
-                    using namespace se::math;
+                    Matrix4x4f model;
+                    for (int i = 0; i < 16; ++i)
+                    {
+                        const double* value = modeld.GetData() + i;
+                        *(model.GetData() + i) = static_cast<float>(*value);
+                    }
 
-                    Matrix4x4f model_mat = TransformUtility::MakeModelMatrix(
-                        my_model.position, my_model.rotation, my_model.scale
-                    );
-                    render_primitive(model_mat * vp_mat);
-                }
-
-                {
-                    using namespace se::math;
-
-                    Quaternionf quaternion = my_model.rotation.ToQuaternion();
-                    Vector3f dir = vec_type == VecType::Forward
-                                       ? quaternion.GetForwardVector()
-                                       : vec_type == VecType::Right
-                                       ? quaternion.GetRightVector()
-                                       : quaternion.GetUpVector();
-                    dir *= is_neg ? -1.0f : 1.0f;
-
-                    Vector3f translation = my_model.position + Vector3f::UnitX() * 5.0f;
-                    Matrix4x4f model_mat = TransformUtility::MakeModelMatrix(
-                        translation + dir * 5.0f,
-                        quaternion,
-                        my_model.scale
-                    );
-                    render_primitive(model_mat * vp_mat);
-                }
-
-                {
-                    using namespace se::math;
-
-                    Matrix4x4f model_mat = TransformUtility::MakeModelMatrix(
-                        my_model.position + Vector3f::UnitX() * 5.0f,
-                        my_model.rotation.ToQuaternion(),
-                        my_model.scale
-                    );
-                    render_primitive(model_mat * vp_mat);
-                }
+                    render_primitive(model * vp_mat);
+                });
 
                 // Render ImGui
                 if (window_id == main_window_id)
