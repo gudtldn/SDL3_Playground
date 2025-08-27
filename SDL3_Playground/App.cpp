@@ -34,9 +34,6 @@ struct Camera
     Vector3f position = Vector3f{ 0, -8, 6 };
     Quaternionf rotation = Quaternionf::Identity();
 
-    Degree<float> pitch = 0_degf;
-    Degree<float> yaw = 0_degf;
-
     float camera_speed = 10.0f;
     float sensitivity = 0.2f;
     Degree<float> fov = 90_degf;
@@ -300,6 +297,9 @@ void App::Initialize()
     SDL_EndGPUCopyPass(copy_pass);
     SDL_SubmitGPUCommandBuffer(upload_cmd);
     SDL_ReleaseGPUTransferBuffer(gpu_device, transfer_buffer);
+
+    world.CreateEntity()
+         .AddComponent<TransformComponent>();
 }
 
 void App::Run()
@@ -409,13 +409,16 @@ void App::Update(float delta_time)
 
     if (m_buttons & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT))
     {
-        my_camera.yaw -= x_delta * my_camera.sensitivity;
-        *my_camera.pitch = se::math::MathUtility::Clamp(*my_camera.pitch - y_delta * my_camera.sensitivity, -89.0f, 89.0f);
+        {
+            using namespace se::math;
 
-        const Quaternionf yaw_q = Quaternionf::FromAxisAngle(Vector3f::UnitZ(), Radian{ my_camera.yaw });
-        const Quaternionf pitch_q = Quaternionf::FromAxisAngle(Vector3f::UnitX(), Radian{ my_camera.pitch });
-
-        my_camera.rotation = yaw_q * pitch_q;
+            const Quaternionf yaw_q = Quaternionf::FromAxisAngle(Vector3f::UnitZ(), MathUtility::DegreesToRadians(-x_delta * my_camera.sensitivity));
+            const Quaternionf pitch_q = Quaternionf::FromAxisAngle(
+                my_camera.rotation.GetRightVector(),
+                MathUtility::DegreesToRadians(-y_delta * my_camera.sensitivity)
+            );
+            my_camera.rotation = yaw_q * pitch_q * my_camera.rotation;
+        }
 
         if (keys[SDL_SCANCODE_W])
         {
@@ -560,10 +563,40 @@ void App::Update(float delta_time)
             {
                 auto& [quat, position, scale] = transform_comp_opt.Value();
                 ImGui::DragScalarN("Position", ImGuiDataType_Double, &position.x, 3, 1.0f);
-                Rotator rotator = quat.ToRotator();
-                ImGui::DragScalarN("Rotation", ImGuiDataType_Double, &rotator.pitch.value, 3, 1.0f);
-                quat = rotator.ToQuaternion();
-                ImGui::DragScalarN("Scale", ImGuiDataType_Double, &scale.x, 3, 1.0f);
+
+                const Rotator old_rotator = quat.ToRotator();
+
+                Degree<double> refl[] = { old_rotator.pitch, old_rotator.roll, old_rotator.yaw };
+                ImGui::DragScalarN("Rotation", ImGuiDataType_Double, &refl[0].value, 3, 1.0f);
+
+                static bool local_rotation = false;
+                ImGui::Checkbox("Local Rotation", &local_rotation);
+
+                {
+                    using namespace se::math;
+
+                    Vector3 axis_x, axis_y, axis_z;
+                    if (local_rotation)
+                    {
+                        axis_x = quat.GetRightVector();
+                        axis_y = quat.GetForwardVector();
+                        axis_z = quat.GetUpVector();
+                    }
+                    else
+                    {
+                        axis_x = Vector3::UnitX();
+                        axis_y = Vector3::UnitY();
+                        axis_z = Vector3::UnitZ();
+                    }
+                    const Quaternion pitch_q = Quaternion::FromAxisAngle(axis_x, Radian{ refl[0] - old_rotator.pitch });
+                    const Quaternion roll_q = Quaternion::FromAxisAngle(axis_y, Radian{ refl[1] - old_rotator.roll });
+                    const Quaternion yaw_q = Quaternion::FromAxisAngle(axis_z, Radian{ refl[2] - old_rotator.yaw });
+
+                    quat = (pitch_q * roll_q * yaw_q * quat).GetNormalized();
+                }
+
+                constexpr double min_value = 0.0;
+                ImGui::DragScalarN("Scale", ImGuiDataType_Double, &scale.x, 3, 1.0f, &min_value);
             }
 
             if (Optional<MeshComponent&> mesh_comp_opt = world.TryGetComponent<MeshComponent>(entity))
@@ -589,13 +622,16 @@ void App::Update(float delta_time)
         {
             my_camera.position = Vector3f::Zero();
             my_camera.rotation = Quaternionf::Identity();
-            my_camera.yaw = 0.0_degf;
-            my_camera.pitch = 0.0_degf;
         }
         ImGui::DragFloat3("Position", &my_camera.position.x, 1.0f, -1000.0f, 1000.0f);
+
         Rotatorf rotator = my_camera.rotation.ToRotator();
-        ImGui::DragFloat3("Rotation", &rotator.pitch.value, 1.0f, -180.0f, 180.0f);
-        my_camera.rotation = rotator.ToQuaternion();
+        auto& [pitch, yaw, roll] = rotator;
+        Degree<float> refl[] = { pitch, roll, yaw };
+
+        ImGui::DragFloat3("Rotation", &refl[0].value, 1.0f, -180.0f, 180.0f);
+        my_camera.rotation = Rotatorf{ refl[0], refl[2], refl[1] }.ToQuaternion();
+
         ImGui::SliderFloat("Camera Speed", &my_camera.camera_speed, 0.001f, 1000.0f);
         ImGui::SliderFloat("Sensitivity", &my_camera.sensitivity, 0.001f, 10.0f);
         ImGui::SliderFloat("FOV", &my_camera.fov.value, 0.0f, 180.0f);
