@@ -23,7 +23,7 @@ double App::DeltaTime = 1.0 / 60.0;
 double App::FixedDeltaTime = 1.0 / 60.0;
 uint64 App::TotalElapsedTime = 0;
 
-uint32 App::TargetFps = 240;
+uint32 App::TargetFps = 24000;
 double App::TargetFrameTime = 1.0 / static_cast<double>(TargetFps);
 
 App* App::Instance = nullptr;
@@ -215,10 +215,11 @@ void App::Initialize()
         .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
         .rasterizer_state = {
             .fill_mode = SDL_GPU_FILLMODE_FILL,
-            // .cull_mode = SDL_GPU_CULLMODE_NONE, // 양면 렌더링
             .cull_mode = SDL_GPU_CULLMODE_BACK,
             .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE
         },
+        .multisample_state = {},
+        .depth_stencil_state = {},
         .target_info = {
             .color_target_descriptions = &color_target_desc,
             .num_color_targets = 1,
@@ -500,6 +501,17 @@ void App::Update(float delta_time)
         std::vector<se::core::ecs::Entity> entities = world.GetAliveEntities();
 
         ImGui::SeparatorText("Entity Pannal");
+        static int count = 0;
+        ImGui::InputInt("##Count", &count);
+        ImGui::SameLine();
+        if (ImGui::Button("Create Entities"))
+        {
+            for (int i = 0; i < count; ++i)
+            {
+                world.CreateEntity()
+                     .AddComponent<TransformComponent>();
+            }
+        }
         if (ImGui::Button("Create Entity"))
         {
             world.CreateEntity()
@@ -545,6 +557,7 @@ void App::Update(float delta_time)
         });
 
         ImGui::SeparatorText("Entity List");
+        ImGui::Text("Entity Count: %d", static_cast<int>(entities.size()));
         ImGui::ListBox(
             "##EntityList",
             &selected_entity,
