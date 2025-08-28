@@ -58,7 +58,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;TRACY_ENABLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpplatest</LanguageStandard>
@@ -67,7 +67,7 @@
       <BuildStlModules>true</BuildStlModules>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
-      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\include;$(SolutionDir)ThirdParty\LivePP;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\include;$(SolutionDir)ThirdParty\LivePP;$(SolutionDir)ThirdParty\tracy\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
@@ -102,7 +102,7 @@ xcopy /Y /D "$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\b
       <BuildStlModules>true</BuildStlModules>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
-      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\include;$(SolutionDir)ThirdParty\LivePP;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\include;$(SolutionDir)ThirdParty\LivePP;$(SolutionDir)ThirdParty\tracy\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -134,6 +134,7 @@ xcopy /Y /D "$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\b
     <ClCompile Include="..\ThirdParty\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\ThirdParty\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\ThirdParty\imgui\imgui_widgets.cpp" />
+    <ClCompile Include="..\ThirdParty\tracy\public\TracyClient.cpp"/>
     <ClCompile Include="App.cpp" />
     <ClCompile Include="App.cppm" />
     <ClCompile Include="main.cpp" />

@@ -1,6 +1,7 @@
 ﻿module;
 #include <SDL3/SDL.h>
 #include <SDL3_shadercross/SDL_shadercross.h>
+#include <tracy/Tracy.hpp>
 module Playground.App;
 
 #pragma warning(disable: 4996) // deprecated warning
@@ -72,6 +73,8 @@ App::~App()
 
 void App::Initialize()
 {
+    ZoneScoped;
+
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS);
     SDL_ShaderCross_Init();
 
@@ -317,6 +320,7 @@ void App::Run()
 
     while (is_running && !quit_requested)
     {
+        ZoneScoped;
         const double frame_start = static_cast<double>(SDL_GetPerformanceCounter()) / performance_frequency;
 
         // Calculate Delta Time
@@ -325,12 +329,15 @@ void App::Run()
         DeltaTime = CurrentTime - LastTime;
         TotalElapsedTime += static_cast<uint64>(DeltaTime * 1000.0);
 
+
         ProcessPlatformEvents();
 
         Update(static_cast<float>(DeltaTime));
 
         Render();
 
+
+        FrameMark;
 
         double frame_duration;
         do
@@ -345,6 +352,8 @@ void App::Run()
 
 void App::Release()
 {
+    ZoneScoped;
+
     SDL_WaitForGPUIdle(gpu_device);
 
     // ImGui Release
@@ -374,6 +383,8 @@ void App::Release()
 
 void App::ProcessPlatformEvents()
 {
+    ZoneScoped;
+
     SDL_Event event;
     while (SDL_PollEvent(&event))
     {
@@ -403,6 +414,8 @@ void App::ProcessPlatformEvents()
 
 void App::Update(float delta_time)
 {
+    ZoneScoped;
+
     // Camera Input
     float x_delta, y_delta;
     SDL_MouseButtonFlags m_buttons = SDL_GetRelativeMouseState(&x_delta, &y_delta);
@@ -654,6 +667,8 @@ void App::Update(float delta_time)
 
 void App::Render() const
 {
+    ZoneScoped;
+
     for (const auto& [window_id, window] : windows)
     {
         // Command Buffer 가져오기
