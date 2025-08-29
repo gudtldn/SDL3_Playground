@@ -156,25 +156,13 @@ void App::Initialize()
 
     // create shader
     const std::filesystem::path root = std::filesystem::current_path().parent_path();
-    SDL_GPUShader* vertex_shader = se::editor::utility::shader_utils::CompileHLSL(
+    SDL_GPUShader* vertex_shader = se::editor::utility::shader_utils::CompileFromHLSL(
         gpu_device,
-        root / "Shaders/Default.vert.hlsl",
-        std::nullopt,
-        std::nullopt,
-        0,
-        1,
-        0,
-        0
+        root / "Shaders/Default.vert.hlsl"
     );
-    SDL_GPUShader* fragment_shader = se::editor::utility::shader_utils::CompileHLSL(
+    SDL_GPUShader* fragment_shader = se::editor::utility::shader_utils::CompileFromHLSL(
         gpu_device,
-        root / "Shaders/Default.frag.hlsl",
-        std::nullopt,
-        std::nullopt,
-        0,
-        0,
-        0,
-        0
+        root / "Shaders/Default.frag.hlsl"
     );
 
     // 버텍스 입력 설정
