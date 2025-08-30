@@ -54,6 +54,15 @@
     </ClCompile>
     <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Utility\ShaderUtils.cppm" />
     <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Utility\Utility.cppm" />
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Rendering\Rendering.cppm" />
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Rendering\ShaderProvider\CompilingShaderProvider.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Rendering\ShaderProvider\CompilingShaderProvider.cppm" />
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Rendering\ShaderProvider\ShaderProvider.cppm" />
+    <ClCompile Include="..\ThirdParty\tracy\public\TracyClient.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\ThirdParty\imgui\backends\imgui_impl_sdl3.h">

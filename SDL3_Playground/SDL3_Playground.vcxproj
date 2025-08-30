@@ -67,7 +67,7 @@
       <BuildStlModules>true</BuildStlModules>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
-      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\include;$(SolutionDir)ThirdParty\LivePP;$(SolutionDir)ThirdParty\tracy\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3_shadercross\include;$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;$(SolutionDir)ThirdParty\LivePP;$(SolutionDir)ThirdParty\tracy\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
@@ -102,7 +102,7 @@ xcopy /Y /D "$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\b
       <BuildStlModules>true</BuildStlModules>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
-      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\include;$(SolutionDir)ThirdParty\LivePP;$(SolutionDir)ThirdParty\tracy\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)ThirdParty\SDL3_shadercross\include;$(SolutionDir)ThirdParty\SDL3\include;$(SolutionDir)ThirdParty\imgui;$(SolutionDir)ThirdParty\imgui\backends;$(SolutionDir)ThirdParty\LivePP;$(SolutionDir)ThirdParty\tracy\public;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -120,6 +120,10 @@ xcopy /Y /D "$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\b
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Rendering\Rendering.cppm" />
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Rendering\ShaderProvider\CompilingShaderProvider.cpp" />
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Rendering\ShaderProvider\CompilingShaderProvider.cppm" />
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Rendering\ShaderProvider\ShaderProvider.cppm" />
     <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Utility\ShaderUtils.cpp" />
     <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Utility\ShaderUtils.cppm" />
     <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Utility\Utility.cppm" />
@@ -134,7 +138,7 @@ xcopy /Y /D "$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\b
     <ClCompile Include="..\ThirdParty\imgui\imgui_draw.cpp" />
     <ClCompile Include="..\ThirdParty\imgui\imgui_tables.cpp" />
     <ClCompile Include="..\ThirdParty\imgui\imgui_widgets.cpp" />
-    <ClCompile Include="..\ThirdParty\tracy\public\TracyClient.cpp"/>
+    <ClCompile Include="..\ThirdParty\tracy\public\TracyClient.cpp" />
     <ClCompile Include="App.cpp" />
     <ClCompile Include="App.cppm" />
     <ClCompile Include="main.cpp" />
