@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 export module Playground.App;
 export import SimpleEngine.Types;
+export import SimpleEngine.Rendering;
 
 import std;
 
@@ -75,6 +76,9 @@ private:
     // Loop 제어 변수
     bool is_running = false;
     bool quit_requested = false;
+
+private:
+    std::unique_ptr<se::rendering::manager::ShaderManager> shader_manager;
 
 private:
     SDL_WindowID main_window_id = 0;

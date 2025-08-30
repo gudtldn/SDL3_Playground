@@ -7,8 +7,10 @@ module Playground.App;
 #pragma warning(disable: 4996) // deprecated warning
 
 
-import SimpleEngine.Prelude;
 import SimpleEngine.Editor.Utility;
+import SimpleEngine.Editor.Rendering;
+
+import SimpleEngine.Prelude;
 import SimpleEngine.Components;
 import SimpleEngine.Geometry;
 
@@ -154,15 +156,16 @@ void App::Initialize()
     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_ShowWindow(window);
 
+    shader_manager = std::make_unique<se::rendering::manager::ShaderManager>(gpu_device);
+    shader_manager->SetProvider<se::editor::rendering::shader_provider::CompilingShaderProvider>();
+
     // create shader
     const std::filesystem::path root = std::filesystem::current_path().parent_path();
-    SDL_GPUShader* vertex_shader = se::editor::utility::shader_utils::CompileFromHLSL(
-        gpu_device,
-        root / "Shaders/Default.vert.hlsl"
+    SDL_GPUShader* vertex_shader = shader_manager->GetShader(
+        { .source_path = root / "Shaders/Default.vert.hlsl" }
     );
-    SDL_GPUShader* fragment_shader = se::editor::utility::shader_utils::CompileFromHLSL(
-        gpu_device,
-        root / "Shaders/Default.frag.hlsl"
+    SDL_GPUShader* fragment_shader = shader_manager->GetShader(
+        { .source_path = root / "Shaders/Default.frag.hlsl" }
     );
 
     // 버텍스 입력 설정
