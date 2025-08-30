@@ -4,6 +4,7 @@ export module Playground.App;
 export import SimpleEngine.Types;
 export import SimpleEngine.Rendering;
 
+import SimpleEngine.Core;
 import std;
 
 
@@ -79,6 +80,7 @@ private:
 
 private:
     std::unique_ptr<se::rendering::manager::ShaderManager> shader_manager;
+    mutable se::core::ecs::World world;
 
 private:
     SDL_WindowID main_window_id = 0;

@@ -7,8 +7,6 @@ import SimpleEngine.Types;
 import SimpleEngine.Core;
 import <Windows.h>;
 
-App app;
-
 
 int WINAPI wWinMain(
     _In_ HINSTANCE hInstance,
@@ -39,9 +37,12 @@ int WINAPI wWinMain(
         LogSettings::SetForceColor(true);
     }
 
-    app.Initialize();
-    app.Run();
-    app.Release();
+    {
+        App app;
+        app.Initialize();
+        app.Run();
+        app.Release();
+    }
 
     lpp::LppDestroyDefaultAgent(&lpp_agent);
 

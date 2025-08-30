@@ -59,8 +59,6 @@ struct MeshComponent
 
 static Camera my_camera;
 
-static se::core::ecs::World world;
-
 
 App::App()
 {
@@ -94,10 +92,11 @@ void App::Initialize()
 #endif
 
     // dx12로 설정
-    SDL_SetHint(SDL_HINT_GPU_DRIVER, "direct3d12");
+    SDL_SetHint(SDL_HINT_GPU_DRIVER, "vulkan");
 
     // GPU Device 생성
     gpu_device = SDL_CreateGPUDeviceWithProperties(props);
+    const char* val = SDL_GetError();
     SDL_DestroyProperties(props);
 
 
@@ -226,8 +225,8 @@ void App::Initialize()
         SDL_AssertBreakpoint();
     }
 
-    SDL_ReleaseGPUShader(gpu_device, vertex_shader);
-    SDL_ReleaseGPUShader(gpu_device, fragment_shader);
+    // SDL_ReleaseGPUShader(gpu_device, vertex_shader);
+    // SDL_ReleaseGPUShader(gpu_device, fragment_shader);
 
     // 버텍스 버퍼
     SDL_GPUBufferCreateInfo vertex_buffer_info = {
@@ -346,6 +345,8 @@ void App::Release()
     ZoneScoped;
 
     SDL_WaitForGPUIdle(gpu_device);
+
+    shader_manager.reset();
 
     // ImGui Release
     ImGui_ImplSDLGPU3_Shutdown();
