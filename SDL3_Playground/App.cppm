@@ -79,7 +79,7 @@ private:
     bool quit_requested = false;
 
 private:
-    std::unique_ptr<se::rendering::manager::ShaderManager> shader_manager;
+    std::unique_ptr<se::rendering::manager::PSOManager> pso_manager;
     mutable se::core::ecs::World world;
 
 private:

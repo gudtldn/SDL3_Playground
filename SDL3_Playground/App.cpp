@@ -155,17 +155,11 @@ void App::Initialize()
     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_ShowWindow(window);
 
-    shader_manager = std::make_unique<se::rendering::manager::ShaderManager>(gpu_device);
-    shader_manager->SetProvider<se::editor::rendering::shader_provider::CompilingShaderProvider>();
+    pso_manager = std::make_unique<se::rendering::manager::PSOManager>(gpu_device);
+    pso_manager->SetShaderCacheProvider<se::editor::rendering::shader_provider::CompilingShaderProvider>();
 
-    // create shader
+    // 셰이더 컴파일때 사용하는 솔루션 경로
     const std::filesystem::path root = std::filesystem::current_path().parent_path();
-    SDL_GPUShader* vertex_shader = shader_manager->GetShader(
-        { .source_path = root / "Shaders/Default.vert.hlsl" }
-    );
-    SDL_GPUShader* fragment_shader = shader_manager->GetShader(
-        { .source_path = root / "Shaders/Default.frag.hlsl" }
-    );
 
     // 버텍스 입력 설정
     SDL_GPUVertexBufferDescription vertex_buffer_desc[] = {
@@ -176,7 +170,7 @@ void App::Initialize()
         }
     };
 
-    SDL_GPUVertexAttribute vertex_attributes[2] = {
+    SDL_GPUVertexAttribute vertex_attributes[] = {
         {
             .location = 0, // POSITION
             .buffer_slot = 0,
@@ -191,14 +185,18 @@ void App::Initialize()
         },
     };
 
-    SDL_GPUColorTargetDescription color_target_desc = {
-        .format = SDL_GetGPUSwapchainTextureFormat(gpu_device, window),
+    SDL_GPUColorTargetDescription color_target_desc[] = {
+        { .format = SDL_GetGPUSwapchainTextureFormat(gpu_device, window) }
     };
 
-    // 파이프라인 초기화
-    SDL_GPUGraphicsPipelineCreateInfo pipeline_info = {
-        .vertex_shader = vertex_shader,
-        .fragment_shader = fragment_shader,
+    // 파이프라인 생성
+    pipeline = pso_manager->GetOrCreateGraphicsPipeline({
+        .vertex_shader_request = {
+            .source_path = root / "Shaders/Default.vert.hlsl",
+        },
+        .fragment_shader_request = {
+            .source_path = root / "Shaders/Default.frag.hlsl",
+        },
         .vertex_input_state = {
             .vertex_buffer_descriptions = vertex_buffer_desc,
             .num_vertex_buffers = std::size(vertex_buffer_desc),
@@ -214,19 +212,42 @@ void App::Initialize()
         .multisample_state = {},
         .depth_stencil_state = {},
         .target_info = {
-            .color_target_descriptions = &color_target_desc,
-            .num_color_targets = 1,
+            .color_target_descriptions = color_target_desc,
+            .num_color_targets = std::size(color_target_desc),
         },
-    };
+    });
 
-    pipeline = SDL_CreateGPUGraphicsPipeline(gpu_device, &pipeline_info);
+    // 파이프라인 생성
+    pipeline = pso_manager->GetOrCreateGraphicsPipeline({
+        .vertex_shader_request = {
+            .source_path = root / "Shaders/Default.vert.hlsl",
+        },
+        .fragment_shader_request = {
+            .source_path = root / "Shaders/Default.frag.hlsl",
+        },
+        .vertex_input_state = {
+            .vertex_buffer_descriptions = vertex_buffer_desc,
+            .num_vertex_buffers = std::size(vertex_buffer_desc),
+            .vertex_attributes = vertex_attributes,
+            .num_vertex_attributes = std::size(vertex_attributes),
+        },
+        .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
+        .rasterizer_state = {
+            .fill_mode = SDL_GPU_FILLMODE_FILL,
+            .cull_mode = SDL_GPU_CULLMODE_BACK,
+            .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE
+        },
+        .multisample_state = {},
+        .depth_stencil_state = {},
+        .target_info = {
+            .color_target_descriptions = color_target_desc,
+            .num_color_targets = std::size(color_target_desc),
+        },
+    });
     if (!pipeline)
     {
         SDL_AssertBreakpoint();
     }
-
-    // SDL_ReleaseGPUShader(gpu_device, vertex_shader);
-    // SDL_ReleaseGPUShader(gpu_device, fragment_shader);
 
     // 버텍스 버퍼
     SDL_GPUBufferCreateInfo vertex_buffer_info = {
@@ -346,7 +367,7 @@ void App::Release()
 
     SDL_WaitForGPUIdle(gpu_device);
 
-    shader_manager.reset();
+    pso_manager.reset();
 
     // ImGui Release
     ImGui_ImplSDLGPU3_Shutdown();
@@ -774,6 +795,8 @@ void App::Render() const
         ImGui::UpdatePlatformWindows();
         ImGui::RenderPlatformWindowsDefault();
     }
+
+    pso_manager->EndFrame();
 }
 
 SDL_WindowID App::CreateWindow(const char* title, int32 x, int32 y, int32 width, int32 height, uint32 flags)
