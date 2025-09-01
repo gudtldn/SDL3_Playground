@@ -7,12 +7,12 @@ module Playground.App;
 #pragma warning(disable: 4996) // deprecated warning
 
 
-import SimpleEngine.Editor.Utility;
-import SimpleEngine.Editor.Rendering;
+import SE.Editor.Utility;
+import SE.Editor.Rendering;
 
-import SimpleEngine.Prelude;
-import SimpleEngine.Components;
-import SimpleEngine.Geometry;
+import SE.Prelude;
+import SE.Components;
+import SE.Geometry;
 
 import <imgui.h>;
 import <imgui_impl_sdl3.h>;

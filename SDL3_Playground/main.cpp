@@ -2,9 +2,9 @@
 
 import std;
 import Playground.App;
-import SimpleEngine.Types;
+import SE.Types;
 
-import SimpleEngine.Core;
+import SE.Core;
 import <Windows.h>;
 
 

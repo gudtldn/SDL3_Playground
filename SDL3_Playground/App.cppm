@@ -1,10 +1,10 @@
 ﻿module;
 #include <SDL3/SDL.h>
 export module Playground.App;
-export import SimpleEngine.Types;
-export import SimpleEngine.Rendering;
+export import SE.Types;
+export import SE.Rendering;
 
-import SimpleEngine.Core;
+import SE.Core;
 import std;
 
 
