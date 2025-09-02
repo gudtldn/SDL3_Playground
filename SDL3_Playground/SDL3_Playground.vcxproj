@@ -120,13 +120,10 @@ xcopy /Y /D "$(SolutionDir)ThirdParty\SimpleEngine\ThirdParty\SDL3_shadercross\b
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Rendering\Rendering.cppm" />
-    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Rendering\ShaderProvider\CompilingShaderProvider.cpp" />
-    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Rendering\ShaderProvider\CompilingShaderProvider.cppm" />
-    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Rendering\ShaderProvider\ShaderProvider.cppm" />
-    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Utility\ShaderUtils.cpp" />
-    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Utility\ShaderUtils.cppm" />
-    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Utility\Utility.cppm" />
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Rendering\**\*.cppm" />
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Rendering\**\*.cpp" />
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Utility\**\*.cppm" />
+    <ClCompile Include="..\ThirdParty\SimpleEngine\Engine\EditorEngine\Source\Utility\**\*.cpp" />
     <None Include="..\Shaders\Default.vert.hlsl" />
     <None Include="..\Shaders\Default.frag.hlsl" />
     <ClCompile Include="..\ThirdParty\imgui\backends\imgui_impl_sdl3.cpp" />
