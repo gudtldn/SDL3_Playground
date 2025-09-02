@@ -96,9 +96,13 @@ void App::Initialize()
 
     // GPU Device 생성
     gpu_device = SDL_CreateGPUDeviceWithProperties(props);
-    const char* val = SDL_GetError();
     SDL_DestroyProperties(props);
 
+    if (!gpu_device)
+    {
+        [[maybe_unused]] const char* msg = SDL_GetError();
+        SDL_AssertBreakpoint();
+    }
 
     /* 윈도우 초기화 */
     const float main_display_scale = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
@@ -217,33 +221,6 @@ void App::Initialize()
         },
     });
 
-    // 파이프라인 생성
-    pipeline = pso_manager->GetOrCreateGraphicsPipeline({
-        .vertex_shader_request = {
-            .source_path = root / "Shaders/Default.vert.hlsl",
-        },
-        .fragment_shader_request = {
-            .source_path = root / "Shaders/Default.frag.hlsl",
-        },
-        .vertex_input_state = {
-            .vertex_buffer_descriptions = vertex_buffer_desc,
-            .num_vertex_buffers = std::size(vertex_buffer_desc),
-            .vertex_attributes = vertex_attributes,
-            .num_vertex_attributes = std::size(vertex_attributes),
-        },
-        .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST,
-        .rasterizer_state = {
-            .fill_mode = SDL_GPU_FILLMODE_FILL,
-            .cull_mode = SDL_GPU_CULLMODE_BACK,
-            .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE
-        },
-        .multisample_state = {},
-        .depth_stencil_state = {},
-        .target_info = {
-            .color_target_descriptions = color_target_desc,
-            .num_color_targets = std::size(color_target_desc),
-        },
-    });
     if (!pipeline)
     {
         SDL_AssertBreakpoint();
