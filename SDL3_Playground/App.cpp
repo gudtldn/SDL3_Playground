@@ -214,10 +214,17 @@ void App::Initialize()
             .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE
         },
         .multisample_state = {},
-        .depth_stencil_state = {},
+        .depth_stencil_state = {
+            .compare_op = SDL_GPU_COMPAREOP_LESS,
+            .enable_depth_test = true,
+            .enable_depth_write = true,
+            .enable_stencil_test = false,
+        },
         .target_info = {
             .color_target_descriptions = color_target_desc,
             .num_color_targets = std::size(color_target_desc),
+            .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
+            .has_depth_stencil_target = true,
         },
     });
 
@@ -225,6 +232,19 @@ void App::Initialize()
     {
         SDL_AssertBreakpoint();
     }
+
+    // 뎁스 텍스처 생성
+    constexpr SDL_GPUTextureCreateInfo texture_info = {
+        .type = SDL_GPU_TEXTURETYPE_2D,
+        .format = SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
+        .usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET,
+        .width = width,
+        .height = height,
+        .layer_count_or_depth = 1,
+        .num_levels = 1,
+        .sample_count = SDL_GPU_SAMPLECOUNT_1,
+    };
+    depth_texture = SDL_CreateGPUTexture(gpu_device, &texture_info);
 
     // 버텍스 버퍼
     SDL_GPUBufferCreateInfo vertex_buffer_info = {
@@ -692,7 +712,15 @@ void App::Render() const
             target_info.layer_or_depth_plane = 0;
             target_info.cycle = false;
 
-            SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, nullptr);
+            SDL_GPUDepthStencilTargetInfo depth_stencil_target_info = {
+                .texture = depth_texture,
+                .clear_depth = 1.0f,
+                .load_op = SDL_GPU_LOADOP_CLEAR,
+                .store_op = SDL_GPU_STOREOP_STORE,
+                .cycle = false,
+            };
+
+            SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, &depth_stencil_target_info);
             {
                 auto render_primitive = [&](const Matrix4x4f& mvp)
                 {

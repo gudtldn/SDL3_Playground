@@ -90,6 +90,8 @@ private:
 
     SDL_GPUGraphicsPipeline* pipeline = nullptr;
 
+    SDL_GPUTexture* depth_texture = nullptr;
+
     SDL_GPUBuffer* vertex_buffer = nullptr;
     SDL_GPUBuffer* index_buffer = nullptr;
 };
