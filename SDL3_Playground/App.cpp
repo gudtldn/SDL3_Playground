@@ -31,6 +31,9 @@ double App::TargetFrameTime = 1.0 / static_cast<double>(TargetFps);
 
 App* App::Instance = nullptr;
 
+static se::core::memory::memory_resource::OsMemoryResource os_memory_resource;
+static std::pmr::memory_resource* original_resource = nullptr;
+
 
 struct Camera
 {
@@ -64,10 +67,14 @@ App::App()
 {
     assert(!Instance);
     Instance = this;
+
+    original_resource = std::pmr::set_default_resource(&os_memory_resource);
 }
 
 App::~App()
 {
+    std::pmr::set_default_resource(original_resource);
+
     Instance = nullptr;
 }
 
@@ -517,11 +524,11 @@ void App::Update(float delta_time)
 
         static int32 selected_entity = -1;
         static int32 selected_component = 0;
-        static std::vector component_names
+        static se::vector<const char*> component_names
         {
-            "TransformComponent", "MeshComponent"
+            { "TransformComponent", "MeshComponent" }, std::pmr::get_default_resource()
         };
-        std::vector<se::core::ecs::Entity> entities = world.GetAliveEntities();
+        se::vector<se::core::ecs::Entity> entities = world.GetAliveEntities();
 
         ImGui::SeparatorText("Entity Pannal");
         static int count = 0;
@@ -567,13 +574,13 @@ void App::Update(float delta_time)
             }
         }
 
-        std::vector<std::string> entity_names;
+        se::vector<std::string> entity_names;
         std::ranges::for_each(entities, [&entity_names](se::core::ecs::Entity entity)
         {
             entity_names.push_back(std::format("Entity {}, Gen: {}", entity.GetId(), entity.GetGeneration()));
         });
 
-        std::vector<const char*> temp_entity_names;
+        se::vector<const char*> temp_entity_names;
         std::ranges::for_each(entity_names, [&temp_entity_names](const std::string& name)
         {
             temp_entity_names.push_back(name.c_str());
