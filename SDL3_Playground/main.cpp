@@ -1,4 +1,5 @@
 #include "API/x64/LPP_API_x64_CPP.h"
+#include "tracy/Tracy.hpp"
 
 import std;
 import Playground.App;
