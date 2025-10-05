@@ -19,6 +19,8 @@ import <imgui_impl_sdl3.h>;
 import <imgui_impl_sdlgpu3.h>;
 import <cassert>;
 
+using namespace se::core::ecs;
+
 
 double App::CurrentTime = 0.0;
 double App::LastTime = 0.0;
@@ -335,33 +337,36 @@ void App::Run()
 
     while (is_running && !quit_requested)
     {
-        ZoneScoped;
-        const double frame_start = static_cast<double>(SDL_GetPerformanceCounter()) / performance_frequency;
-
-        // Calculate Delta Time
-        LastTime = CurrentTime;
-        CurrentTime = frame_start;
-        DeltaTime = CurrentTime - LastTime;
-        TotalElapsedTime += static_cast<uint64>(DeltaTime * 1000.0);
-
-
-        ProcessPlatformEvents();
-
-        Update(static_cast<float>(DeltaTime));
-
-        Render();
-
-
-        FrameMark;
-
-        double frame_duration;
-        do
         {
-            SDL_Delay(0);
-            const double frame_end = static_cast<double>(SDL_GetPerformanceCounter()) / performance_frequency;
-            frame_duration = frame_end - CurrentTime;
+            ZoneScopedN("FrameLoop");
+
+            const double frame_start = static_cast<double>(SDL_GetPerformanceCounter()) / performance_frequency;
+
+            // Calculate Delta Time
+            LastTime = CurrentTime;
+            CurrentTime = frame_start;
+            DeltaTime = CurrentTime - LastTime;
+            TotalElapsedTime += static_cast<uint64>(DeltaTime * 1000.0);
+
+            ProcessPlatformEvents();
+
+            Update(static_cast<float>(DeltaTime));
+
+            Render();
         }
-        while (frame_duration < TargetFrameTime);
+
+        {
+            ZoneScopedN("FrameSleep");
+
+            double frame_duration;
+            do
+            {
+                SDL_Delay(0);
+                const double frame_end = static_cast<double>(SDL_GetPerformanceCounter()) / performance_frequency;
+                frame_duration = frame_end - CurrentTime;
+            } while (frame_duration < TargetFrameTime);
+        }
+        FrameMark;
     }
 }
 
@@ -575,12 +580,14 @@ void App::Update(float delta_time)
         }
 
         se::vector<std::string> entity_names;
+        entity_names.reserve(entities.size());
         std::ranges::for_each(entities, [&entity_names](se::core::ecs::Entity entity)
         {
             entity_names.push_back(std::format("Entity {}, Gen: {}", entity.GetId(), entity.GetGeneration()));
         });
 
         se::vector<const char*> temp_entity_names;
+        temp_entity_names.reserve(entity_names.size());
         std::ranges::for_each(entity_names, [&temp_entity_names](const std::string& name)
         {
             temp_entity_names.push_back(name.c_str());
