@@ -39,12 +39,12 @@ static std::pmr::memory_resource* original_resource = nullptr;
 
 struct Camera
 {
-    Vector3f position = Vector3f{ 0, -8, 6 };
-    Quaternionf rotation = Quaternionf::Identity();
+    Vector3 position = Vector3{ 0, -8, 6 };
+    Quaternion rotation = Quaternion::Identity();
 
-    float camera_speed = 10.0f;
-    float sensitivity = 0.2f;
-    Degree<float> fov = 90_degf;
+    double camera_speed = 10.0f;
+    double sensitivity = 0.2f;
+    Degree<double> fov = 90_deg;
 };
 
 enum class MeshTypes : uint8
@@ -448,8 +448,8 @@ void App::Update(float delta_time)
         {
             using namespace se::math;
 
-            const Quaternionf yaw_q = Quaternionf::FromAxisAngle(Vector3f::UnitZ(), MathUtility::DegreesToRadians(-x_delta * my_camera.sensitivity));
-            const Quaternionf pitch_q = Quaternionf::FromAxisAngle(
+            const Quaternion yaw_q = Quaternion::FromAxisAngle(Vector3::UnitZ(), MathUtility::DegreesToRadians(-x_delta * my_camera.sensitivity));
+            const Quaternion pitch_q = Quaternion::FromAxisAngle(
                 my_camera.rotation.GetRightVector(),
                 MathUtility::DegreesToRadians(-y_delta * my_camera.sensitivity)
             );
@@ -474,11 +474,11 @@ void App::Update(float delta_time)
         }
         if (keys[SDL_SCANCODE_E])
         {
-            my_camera.position += Vector3f::UnitZ() * my_camera.camera_speed * delta_time;
+            my_camera.position += Vector3::UnitZ() * my_camera.camera_speed * delta_time;
         }
         if (keys[SDL_SCANCODE_Q])
         {
-            my_camera.position -= Vector3f::UnitZ() * my_camera.camera_speed * delta_time;
+            my_camera.position -= Vector3::UnitZ() * my_camera.camera_speed * delta_time;
         }
     }
 
@@ -670,21 +670,36 @@ void App::Update(float delta_time)
     {
         if (ImGui::Button("Reset Camera"))
         {
-            my_camera.position = Vector3f::Zero();
-            my_camera.rotation = Quaternionf::Identity();
+            my_camera.position = Vector3::Zero();
+            my_camera.rotation = Quaternion::Identity();
         }
-        ImGui::DragFloat3("Position", &my_camera.position.x, 1.0f, -1000.0f, 1000.0f);
+        {
+            constexpr double min_value = -1000.0, max_value = 1000.0;
+            ImGui::DragScalarN("Position", ImGuiDataType_Double, &my_camera.position.x, 3, 1.0f, &min_value, &max_value);
+        }
 
-        Rotatorf rotator = my_camera.rotation.ToRotator();
-        auto& [pitch, yaw, roll] = rotator;
-        Degree<float> refl[] = { pitch, roll, yaw };
+        {
+            Rotator rotator = my_camera.rotation.ToRotator();
+            auto& [pitch, yaw, roll] = rotator;
+            Degree<double> refl[] = { pitch, roll, yaw };
 
-        ImGui::DragFloat3("Rotation", &refl[0].value, 1.0f, -180.0f, 180.0f);
-        my_camera.rotation = Rotatorf{ refl[0], refl[2], refl[1] }.ToQuaternion();
+            constexpr double min_value = -180.0, max_value = 180.0;
+            ImGui::DragScalarN("Rotation", ImGuiDataType_Double, &refl[0].value, 3, 1.0f, &min_value, &max_value);
+            my_camera.rotation = Rotator{ refl[0], refl[2], refl[1] }.ToQuaternion();
+        }
 
-        ImGui::SliderFloat("Camera Speed", &my_camera.camera_speed, 0.001f, 1000.0f);
-        ImGui::SliderFloat("Sensitivity", &my_camera.sensitivity, 0.001f, 10.0f);
-        ImGui::SliderFloat("FOV", &my_camera.fov.value, 0.0f, 180.0f);
+        {
+            constexpr double min_value = 0.001, max_value = 1000.0;
+            ImGui::DragScalarN("Camera Speed", ImGuiDataType_Double, &my_camera.camera_speed, 1, 1.0f, &min_value, &max_value);
+        }
+        {
+            constexpr double min_value = 0.001, max_value = 10.0;
+            ImGui::SliderScalarN("Sensitivity", ImGuiDataType_Double, &my_camera.sensitivity, 3, &min_value, &max_value);
+        }
+        {
+            constexpr double min_value = 0.0, max_value = 180.0;
+            ImGui::SliderScalarN("FOV", ImGuiDataType_Double, &my_camera.fov.value, 1, &min_value, &max_value);
+        }
     }
     ImGui::End();
 }
@@ -736,9 +751,16 @@ void App::Render() const
 
             SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, &depth_stencil_target_info);
             {
-                auto render_primitive = [&](const Matrix4x4f& mvp)
+                auto render_primitive = [&](const Matrix4x4& mvp)
                 {
-                    SDL_PushGPUVertexUniformData(command_buffer, 0, &mvp, sizeof(mvp));
+                    Matrix4x4f mvpf;
+                    for (int i = 0; i < 16; ++i)
+                    {
+                        const double* value = mvp.GetData() + i;
+                        *(mvpf.GetData() + i) = static_cast<float>(*value);
+                    }
+
+                    SDL_PushGPUVertexUniformData(command_buffer, 0, &mvpf, sizeof(mvpf));
 
                     // Vertex Buffer 바인딩
                     const SDL_GPUBufferBinding vertex_binding = {
@@ -762,15 +784,17 @@ void App::Render() const
 
                 SDL_BindGPUGraphicsPipeline(render_pass, pipeline);
 
-                Matrix4x4f vp_mat;
+                Matrix4x4 vp_mat;
                 {
                     using namespace se::math;
 
-                    Matrix4x4f view_mat = TransformUtility::MakeViewMatrix(
-                        my_camera.position, my_camera.position + my_camera.rotation.GetForwardVector(), Vector3f::UnitZ()
+                    Matrix4x4 view_mat = TransformUtility::MakeViewMatrix(
+                        my_camera.position, my_camera.position + my_camera.rotation.GetForwardVector(), Vector3::UnitZ()
                     );
-                    Matrix4x4f projection_mat = TransformUtility::MakePerspectiveMatrix(
-                        Radian{ my_camera.fov }, draw_data->DisplaySize.x / draw_data->DisplaySize.y, 0.1f, 10000.0f
+                    Matrix4x4 projection_mat = TransformUtility::MakePerspectiveMatrix(
+                        Radian{ my_camera.fov },
+                        static_cast<double>(draw_data->DisplaySize.x / draw_data->DisplaySize.y),
+                        0.1, 10000.0
                     );
 
                     vp_mat = view_mat * projection_mat;
@@ -785,17 +809,9 @@ void App::Render() const
                         using namespace se::math;
                         for (const auto& [transform_comp] : query)
                         {
-                            Matrix4x4 modeld = TransformUtility::MakeModelMatrix(
+                            Matrix4x4 model = TransformUtility::MakeModelMatrix(
                                 transform_comp.position, transform_comp.rotation, transform_comp.scale
                             );
-
-                            Matrix4x4f model;
-                            for (int i = 0; i < 16; ++i)
-                            {
-                                const double* value = modeld.GetData() + i;
-                                *(model.GetData() + i) = static_cast<float>(*value);
-                            }
-
                             render_primitive(model * vp_mat);
                         }
                     });
