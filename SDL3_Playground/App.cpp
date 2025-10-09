@@ -776,23 +776,34 @@ void App::Render() const
                     vp_mat = view_mat * projection_mat;
                 }
 
-                world.Query<TransformComponent>().ForEach([&](se::core::ecs::Entity _, const TransformComponent& transform_comp)
+                // 임시 코드
+                static bool is_first = true;
+                if (is_first)
                 {
-                    using namespace se::math;
-
-                    Matrix4x4 modeld = TransformUtility::MakeModelMatrix(
-                        transform_comp.position, transform_comp.rotation, transform_comp.scale
-                    );
-
-                    Matrix4x4f model;
-                    for (int i = 0; i < 16; ++i)
+                    world.AddSystem<schedules::Update>([&](Query<const TransformComponent&> query)
                     {
-                        const double* value = modeld.GetData() + i;
-                        *(model.GetData() + i) = static_cast<float>(*value);
-                    }
+                        using namespace se::math;
+                        for (const auto& [transform_comp] : query)
+                        {
+                            Matrix4x4 modeld = TransformUtility::MakeModelMatrix(
+                                transform_comp.position, transform_comp.rotation, transform_comp.scale
+                            );
 
-                    render_primitive(model * vp_mat);
-                });
+                            Matrix4x4f model;
+                            for (int i = 0; i < 16; ++i)
+                            {
+                                const double* value = modeld.GetData() + i;
+                                *(model.GetData() + i) = static_cast<float>(*value);
+                            }
+
+                            render_primitive(model * vp_mat);
+                        }
+                    });
+                    is_first = false;
+                }
+
+                // 임시 코드
+                world.RunSchedule<schedules::Update>();
 
                 // Render ImGui
                 if (window_id == main_window_id)
