@@ -1,0 +1,2 @@
+﻿add_subdirectory(SimpleEngine/EngineCore)
+add_subdirectory(SimpleEngine/ThirdParty)

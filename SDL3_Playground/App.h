@@ -1,14 +1,18 @@
-﻿module;
-#include <SDL3/SDL.h>
-export module Playground.App;
-export import SE.Types;
-export import SE.Rendering;
+﻿#pragma once
+#include <memory>
+#include <unordered_map>
 
-import SE.Core;
-import std;
+#include "SDL3/SDL.h"
+#include "SimpleEngine/Core/HAL/PlatformTypes.h"
+#include "SimpleEngine/World/World.h"
 
 
-export class App
+namespace se::rendering
+{
+    class PSOManager;
+}
+
+class App
 {
 public:
     App();
@@ -31,11 +35,11 @@ protected:
     void Render() const;
 
 public:
-    bool IsRunning() const { return is_running; }
+    [[nodiscard]] bool IsRunning() const { return is_running; }
 
     // Application 종료 관련
     void RequestQuit() { quit_requested = true; }
-    bool IsQuitRequested() const { return quit_requested; }
+    [[nodiscard]] bool IsQuitRequested() const { return quit_requested; }
 
 public:
     static double GetCurrentTime() { return CurrentTime; }
@@ -52,14 +56,14 @@ public:
         TargetFrameTime = 1.0 / static_cast<double>(TargetFps);
     }
 
-    SDL_Window* GetWindow(SDL_WindowID window_id) const { return windows.at(window_id); }
-    SDL_Window* GetMainWindow() const { return GetWindow(main_window_id); }
+    [[nodiscard]] SDL_Window* GetWindow(SDL_WindowID window_id) const { return windows.at(window_id); }
+    [[nodiscard]] SDL_Window* GetMainWindow() const { return GetWindow(main_window_id); }
 
     SDL_WindowID CreateWindow(const char* title, int32 x, int32 y, int32 width, int32 height, uint32 flags);
     void DestroyWindow(SDL_WindowID window_id);
     void DestroyWindow(SDL_Window* window);
 
-    SDL_GPUDevice* GetGPUDevice() const { return gpu_device; }
+    [[nodiscard]] SDL_GPUDevice* GetGPUDevice() const { return gpu_device; }
 
 private:
     static App* Instance;
@@ -79,8 +83,8 @@ private:
     bool quit_requested = false;
 
 private:
-    std::unique_ptr<se::rendering::manager::PSOManager> pso_manager;
-    mutable se::core::ecs::World world;
+    std::unique_ptr<se::rendering::PSOManager> pso_manager;
+    mutable se::world::World world;
 
 private:
     SDL_WindowID main_window_id = 0;

@@ -1,26 +1,36 @@
-﻿module;
-#include <SDL3/SDL.h>
-#include <SDL3_shadercross/SDL_shadercross.h>
-#include <tracy/Tracy.hpp>
-module Playground.App;
+﻿#include "App.h"
+
+#include <cassert>
+#include <filesystem>
+#include <format>
+#include <ranges>
+
+#include "SimpleEngine/Core/Math/Math.h"
+#include "SimpleEngine/Core/Memory/MemoryResource/OsMemoryResource.h"
+#include "SimpleEngine/Geometry/Circle.h"
+#include "SimpleEngine/Geometry/Corn.h"
+#include "SimpleEngine/Geometry/Cube.h"
+#include "SimpleEngine/Geometry/Cylinder.h"
+#include "SimpleEngine/Geometry/Plane.h"
+#include "SimpleEngine/Geometry/Torus.h"
+#include "SimpleEngine/Geometry/Vertex.h"
+#include "SimpleEngine/Rendering/Manager/PSOManager.h"
+#include "SimpleEngine/World/Components/TransformComponent.h"
+#include "SimpleEngine/World/Query.h"
+
+#include "imgui.h"
+#include "imgui_impl_sdl3.h"
+#include "imgui_impl_sdlgpu3.h"
+#include "Rendering/Compiler/Provider.h"
+#include "SDL3/SDL.h"
+#include "SDL3_shadercross/SDL_shadercross.h"
+#include "tracy/Tracy.hpp"
 
 #pragma warning(disable: 4996) // deprecated warning
 
-
-import SE.Editor.Utility;
-import SE.Editor.Rendering;
-
-import SE.Prelude;
-import SE.Components;
-import SE.Geometry;
-
-import <imgui.h>;
-import <imgui_impl_sdl3.h>;
-import <imgui_impl_sdlgpu3.h>;
-import <cassert>;
-
-using namespace se::core::ecs;
-
+using namespace se::core;
+using namespace se::world;
+using namespace se::rendering;
 
 double App::CurrentTime = 0.0;
 double App::LastTime = 0.0;
@@ -177,11 +187,11 @@ void App::Initialize()
     SDL_SetWindowPosition(window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_ShowWindow(window);
 
-    pso_manager = std::make_unique<se::rendering::manager::PSOManager>(gpu_device);
-    pso_manager->SetShaderCacheProvider<se::editor::rendering::shader_provider::CompilingShaderProvider>();
+    pso_manager = std::make_unique<PSOManager>(gpu_device);
+    pso_manager->SetShaderCacheProvider<se::editor::rendering::CompilingShaderProvider>();
 
     // 셰이더 컴파일때 사용하는 솔루션 경로
-    const std::filesystem::path root = std::filesystem::current_path().parent_path();
+    const std::filesystem::path root = PROJECT_ROOT_DIR;
 
     // 버텍스 입력 설정
     SDL_GPUVertexBufferDescription vertex_buffer_desc[] = {
@@ -265,9 +275,9 @@ void App::Initialize()
     depth_texture = SDL_CreateGPUTexture(gpu_device, &texture_info);
 
     // 모든 메시 데이터를 하나의 버퍼에 업로드
-    const size_t total_vertex_size = sizeof(circle_vertices) + sizeof(corn_vertices) + sizeof(cube_vertices) + sizeof(cylinder_vertices) + sizeof(
+    constexpr size_t total_vertex_size = sizeof(circle_vertices) + sizeof(corn_vertices) + sizeof(cube_vertices) + sizeof(cylinder_vertices) + sizeof(
         plane_vertices) + sizeof(torus_vertices);
-    const size_t total_index_size = sizeof(circle_indices) + sizeof(corn_indices) + sizeof(cube_indices) + sizeof(cylinder_indices) + sizeof(
+    constexpr size_t total_index_size = sizeof(circle_indices) + sizeof(corn_indices) + sizeof(cube_indices) + sizeof(cylinder_indices) + sizeof(
         plane_indices) + sizeof(torus_indices);
 
     // 버텍스 버퍼
@@ -341,7 +351,7 @@ void App::Initialize()
     SDL_SubmitGPUCommandBuffer(upload_cmd);
     SDL_ReleaseGPUTransferBuffer(gpu_device, transfer_buffer);
 
-    world.Spawn()
+    world.SpawnEntity()
          .AddComponent<TransformComponent>()
          .AddComponent<MeshComponent>(); // 기본으로 MeshComponent도 추가
 }
@@ -556,7 +566,7 @@ void App::Update(float delta_time)
         {
             { "TransformComponent", "MeshComponent" }, std::pmr::get_default_resource()
         };
-        se::vector<se::core::ecs::Entity> entities = world.GetAliveEntities();
+        se::vector<se::world::Entity> entities = world.GetAliveEntities();
 
         ImGui::SeparatorText("Entity Pannal");
         static int count = 0;
@@ -566,14 +576,14 @@ void App::Update(float delta_time)
         {
             for (int i = 0; i < count; ++i)
             {
-                world.Spawn()
+                world.SpawnEntity()
                      .AddComponent<TransformComponent>()
                      .AddComponent<MeshComponent>();
             }
         }
         if (ImGui::Button("Create Entity"))
         {
-            world.Spawn()
+            world.SpawnEntity()
                  .AddComponent<TransformComponent>();
         }
         ImGui::SameLine();
@@ -630,7 +640,7 @@ void App::Update(float delta_time)
         ImGui::SeparatorText("Entity Property");
         if (selected_entity >= 0 && selected_entity < entities.size())
         {
-            const se::core::ecs::Entity entity = entities[selected_entity];
+            const se::world::Entity entity = entities[selected_entity];
             ImGui::Text(std::format("Selected Entity ID: {}", entity.GetId()).c_str());
 
             if (Optional<TransformComponent&> transform_comp_opt = world.TryGetComponent<TransformComponent>(entity))
