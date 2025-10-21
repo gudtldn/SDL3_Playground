@@ -613,29 +613,29 @@ void App::Update(float delta_time)
             }
         }
 
-        //se::vector<std::string> entity_names;
-        //entity_names.reserve(entities.size());
-        //std::ranges::for_each(entities, [&entity_names](se::core::ecs::Entity entity)
-        //{
-        //    entity_names.push_back(std::format("Entity {}, Gen: {}", entity.GetId(), entity.GetGeneration()));
-        //});
+        se::vector<std::string> entity_names;
+        entity_names.reserve(entities.size());
+        std::ranges::for_each(entities, [&entity_names](Entity entity)
+        {
+            entity_names.push_back(std::format("Entity {}, Gen: {}", entity.GetId(), entity.GetGeneration()));
+        });
 
-        //se::vector<const char*> temp_entity_names;
-        //temp_entity_names.reserve(entity_names.size());
-        //std::ranges::for_each(entity_names, [&temp_entity_names](const std::string& name)
-        //{
-        //    temp_entity_names.push_back(name.c_str());
-        //});
+        se::vector<const char*> temp_entity_names;
+        temp_entity_names.reserve(entity_names.size());
+        std::ranges::for_each(entity_names, [&temp_entity_names](const std::string& name)
+        {
+            temp_entity_names.push_back(name.c_str());
+        });
 
         ImGui::SeparatorText("Entity List");
         ImGui::Text("Entity Count: %d", static_cast<int>(entities.size()));
-        //ImGui::ListBox(
-        //    "##EntityList",
-        //    &selected_entity,
-        //    temp_entity_names.data(),
-        //    static_cast<int>(entity_names.size()),
-        //    10
-        //);
+        ImGui::ListBox(
+            "##EntityList",
+            &selected_entity,
+            temp_entity_names.data(),
+            static_cast<int>(entity_names.size()),
+            10
+        );
 
         ImGui::SeparatorText("Entity Property");
         if (selected_entity >= 0 && selected_entity < entities.size())
