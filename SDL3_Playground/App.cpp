@@ -15,8 +15,8 @@
 #include "SimpleEngine/Geometry/Torus.h"
 #include "SimpleEngine/Geometry/Vertex.h"
 #include "SimpleEngine/Rendering/Manager/PSOManager.h"
-#include "SimpleEngine/World/Components/TransformComponent.h"
 #include "SimpleEngine/World/Query.h"
+#include "SimpleEngine/World/Components/TransformComponent.h"
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -43,14 +43,11 @@ double App::TargetFrameTime = 1.0 / static_cast<double>(TargetFps);
 
 App* App::Instance = nullptr;
 
-static se::core::memory::memory_resource::OsMemoryResource os_memory_resource;
-static std::pmr::memory_resource* original_resource = nullptr;
-
 
 struct Camera
 {
-    Vector3 position = Vector3{ 0, -8, 6 };
     Quaternion rotation = Quaternion::Identity();
+    Vector3 position = Vector3{ 0, -8, 6 };
 
     double camera_speed = 10.0f;
     double sensitivity = 0.2f;
@@ -79,7 +76,7 @@ struct MeshInfo
     uint32 index_buffer_offset = 0;
 };
 
-static std::map<MeshTypes, MeshInfo> mesh_infos;
+static se::HashMap<MeshTypes, MeshInfo> mesh_infos;
 
 static Camera my_camera;
 
@@ -88,14 +85,10 @@ App::App()
 {
     assert(!Instance);
     Instance = this;
-
-    original_resource = std::pmr::set_default_resource(&os_memory_resource);
 }
 
 App::~App()
 {
-    std::pmr::set_default_resource(original_resource);
-
     Instance = nullptr;
 }
 
@@ -524,7 +517,7 @@ void App::Update(float delta_time)
 
     ImGui::Begin("Window Pannal");
     {
-        static std::array<char, 256> window_title = {};
+        static se::FixedArray<char, 256> window_title = {};
         static int32 window_x = 100;
         static int32 window_y = 100;
         static int32 window_width = 1280;
@@ -532,8 +525,8 @@ void App::Update(float delta_time)
 
         ImGui::InputText(
             "Window Title",
-            window_title.data(),
-            window_title.size(),
+            window_title.Data(),
+            window_title.Len(),
             ImGuiInputTextFlags_EnterReturnsTrue
         );
         ImGui::InputInt("Window X", &window_x);
@@ -544,7 +537,7 @@ void App::Update(float delta_time)
         if (ImGui::Button("New Window"))
         {
             CreateWindow(
-                window_title.data(),
+                window_title.Data(),
                 window_x,
                 window_y,
                 window_width,
@@ -562,11 +555,10 @@ void App::Update(float delta_time)
 
         static int32 selected_entity = -1;
         static int32 selected_component = 0;
-        static se::vector<const char*> component_names
-        {
-            { "TransformComponent", "MeshComponent" }, std::pmr::get_default_resource()
+        static se::Array component_names {
+             "TransformComponent", "MeshComponent"
         };
-        se::vector<se::world::Entity> entities = world.GetAliveEntities();
+        se::Array<Entity> entities = world.GetAliveEntities();
 
         ImGui::SeparatorText("Entity Pannal");
         static int count = 0;
@@ -589,18 +581,18 @@ void App::Update(float delta_time)
         ImGui::SameLine();
         if (ImGui::Button("Delete Entity") || keys[SDL_SCANCODE_DELETE])
         {
-            if (selected_entity >= 0 && selected_entity < entities.size())
+            if (selected_entity >= 0 && selected_entity < entities.Len())
             {
                 world.DestroyEntity(entities[selected_entity]);
                 selected_entity = -1;
             }
         }
 
-        ImGui::Combo("##AddComponentCombo", &selected_component, component_names.data(), static_cast<int>(component_names.size()));
+        ImGui::Combo("##AddComponentCombo", &selected_component, component_names.Data(), static_cast<int>(component_names.Len()));
         ImGui::SameLine();
         if (ImGui::Button("Add Component"))
         {
-            if (selected_entity >= 0 && selected_entity < entities.size())
+            if (selected_entity >= 0 && selected_entity < entities.Len())
             {
                 if (selected_component == 0)
                 {
@@ -613,34 +605,32 @@ void App::Update(float delta_time)
             }
         }
 
-        se::vector<std::string> entity_names;
-        entity_names.reserve(entities.size());
-        std::ranges::for_each(entities, [&entity_names](Entity entity)
-        {
-            entity_names.push_back(std::format("Entity {}, Gen: {}", entity.GetId(), entity.GetGeneration()));
-        });
+        se::Array<se::String> entity_names;
+        se::Array<const char*> temp_entity_names;
 
-        se::vector<const char*> temp_entity_names;
-        temp_entity_names.reserve(entity_names.size());
-        std::ranges::for_each(entity_names, [&temp_entity_names](const std::string& name)
+        entity_names.Reserve(entities.Len());
+        temp_entity_names.Reserve(entity_names.Len());
+        std::ranges::for_each(entities, [&entity_names, &temp_entity_names](Entity entity)
         {
-            temp_entity_names.push_back(name.c_str());
+            se::String name = se::String::Format("Entity {}, Gen: {}", entity.GetId(), entity.GetGeneration());
+            temp_entity_names.Push(name.CStr());
+            entity_names.Push(std::move(name));
         });
 
         ImGui::SeparatorText("Entity List");
-        ImGui::Text("Entity Count: %d", static_cast<int>(entities.size()));
+        ImGui::Text("Entity Count: %d", static_cast<int>(entities.Len()));
         ImGui::ListBox(
             "##EntityList",
             &selected_entity,
-            temp_entity_names.data(),
-            static_cast<int>(entity_names.size()),
+            temp_entity_names.Data(),
+            static_cast<int>(entity_names.Len()),
             10
         );
 
         ImGui::SeparatorText("Entity Property");
-        if (selected_entity >= 0 && selected_entity < entities.size())
+        if (selected_entity >= 0 && selected_entity < entities.Len())
         {
-            const se::world::Entity entity = entities[selected_entity];
+            const Entity entity = entities[selected_entity];
             ImGui::Text(std::format("Selected Entity ID: {}", entity.GetId()).c_str());
 
             if (Optional<TransformComponent&> transform_comp_opt = world.TryGetComponent<TransformComponent>(entity))
@@ -728,7 +718,7 @@ void App::Update(float delta_time)
         }
         {
             constexpr double min_value = 0.001, max_value = 10.0;
-            ImGui::SliderScalarN("Sensitivity", ImGuiDataType_Double, &my_camera.sensitivity, 3, &min_value, &max_value);
+            ImGui::SliderScalarN("Sensitivity", ImGuiDataType_Double, &my_camera.sensitivity, 1, &min_value, &max_value);
         }
         {
             constexpr double min_value = 0.0, max_value = 180.0;

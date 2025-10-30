@@ -28,14 +28,28 @@ foreach (OUTPUT_CONFIG ${CMAKE_CONFIGURATION_TYPES})
     set(CMAKE_PDB_OUTPUT_DIRECTORY_${OUTPUT_CONFIG_UPPER} ${BINARY_OUTPUT_PATH}/${OUTPUT_CONFIG})
 endforeach ()
 
-# MSVC 컴파일러를 사용하는 경우에만 아래 옵션을 추가
+# UTF-8 인코딩 사용
 if (MSVC)
     add_compile_options(
-            "/utf-8"           # 소스 코드 파일을 UTF-8로 읽도록 지정
-            "/Zc:preprocessor" # MSVC 전처리기 최신 표준 기능을 활성화
+            /utf-8
+            /Zc:preprocessor # MSVC 전처리기 최신 표준 기능을 활성화
+            /W4              # 경고 수준을 최고 수준으로 설정
+            /MP              # 멀티스레드 빌드 사용
+            /wd4251 /wd4275
     )
-endif()
+else ()
+    add_compile_options(
+            -finput-charset=UTF-8
+            -fexec-charset=UTF-8
+            -Wall -Wextra
+    )
+endif ()
 
+# 컴파일러 빌드 설정
+add_compile_definitions(
+        $<$<CONFIG:Debug>:_DEBUG>
+        $<$<CONFIG:Release>:NDEBUG>
+)
 
 add_executable(SDL3_Playground
         SDL3_Playground/main.cpp
