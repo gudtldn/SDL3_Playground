@@ -11,6 +11,7 @@
     <mapping directory="$PROJECT_DIR$/ThirdParty/SimpleEngine/ThirdParty/SDL_shadercross/external/SPIRV-Cross" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/ThirdParty/SimpleEngine/ThirdParty/SDL_shadercross/external/SPIRV-Headers" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/ThirdParty/SimpleEngine/ThirdParty/SDL_shadercross/external/SPIRV-Tools" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/ThirdParty/SimpleEngine/ThirdParty/cpu_features" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/ThirdParty/SimpleEngine/ThirdParty/doctest" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/ThirdParty/SimpleEngine/ThirdParty/imgui" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/ThirdParty/SimpleEngine/ThirdParty/tomlplusplus" vcs="Git" />

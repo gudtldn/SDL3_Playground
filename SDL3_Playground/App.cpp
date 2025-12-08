@@ -6,7 +6,6 @@
 #include <ranges>
 
 #include "SimpleEngine/Core/Math/Math.h"
-#include "SimpleEngine/Core/Memory/MemoryResource/OsMemoryResource.h"
 #include "SimpleEngine/Geometry/Circle.h"
 #include "SimpleEngine/Geometry/Corn.h"
 #include "SimpleEngine/Geometry/Cube.h"
@@ -15,8 +14,8 @@
 #include "SimpleEngine/Geometry/Torus.h"
 #include "SimpleEngine/Geometry/Vertex.h"
 #include "SimpleEngine/Rendering/Manager/PSOManager.h"
-#include "SimpleEngine/World/Query.h"
-#include "SimpleEngine/World/Components/TransformComponent.h"
+#include "SimpleEngine/ECS/Query.h"
+#include "SimpleEngine/ECS/Components/TransformComponent.h"
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -28,8 +27,9 @@
 
 #pragma warning(disable: 4996) // deprecated warning
 
+using namespace se;
 using namespace se::core;
-using namespace se::world;
+using namespace se::ecs;
 using namespace se::rendering;
 
 double App::CurrentTime = 0.0;
@@ -76,7 +76,7 @@ struct MeshInfo
     uint32 index_buffer_offset = 0;
 };
 
-static se::HashMap<MeshTypes, MeshInfo> mesh_infos;
+static HashMap<MeshTypes, MeshInfo> mesh_infos;
 
 static Camera my_camera;
 
@@ -181,7 +181,7 @@ void App::Initialize()
     SDL_ShowWindow(window);
 
     pso_manager = std::make_unique<PSOManager>(gpu_device);
-    pso_manager->SetShaderCacheProvider<se::editor::rendering::CompilingShaderProvider>();
+    pso_manager->SetShaderCacheProvider<editor::rendering::CompilingShaderProvider>();
 
     // 셰이더 컴파일때 사용하는 솔루션 경로
     const std::filesystem::path root = PROJECT_ROOT_DIR;
@@ -474,10 +474,10 @@ void App::Update(float delta_time)
         {
             using namespace se::math;
 
-            const Quaternion yaw_q = Quaternion::FromAxisAngle(Vector3::UnitZ(), MathUtility::DegreesToRadians(-x_delta * my_camera.sensitivity));
+            const Quaternion yaw_q = Quaternion::FromAxisAngle(Vector3::UnitZ(), DegreesToRadians(-x_delta * my_camera.sensitivity));
             const Quaternion pitch_q = Quaternion::FromAxisAngle(
                 my_camera.rotation.GetRightVector(),
-                MathUtility::DegreesToRadians(-y_delta * my_camera.sensitivity)
+                DegreesToRadians(-y_delta * my_camera.sensitivity)
             );
             my_camera.rotation = yaw_q * pitch_q * my_camera.rotation;
         }
@@ -517,7 +517,7 @@ void App::Update(float delta_time)
 
     ImGui::Begin("Window Pannal");
     {
-        static se::FixedArray<char, 256> window_title = {};
+        static FixedArray<char, 256> window_title = {};
         static int32 window_x = 100;
         static int32 window_y = 100;
         static int32 window_width = 1280;
@@ -555,10 +555,10 @@ void App::Update(float delta_time)
 
         static int32 selected_entity = -1;
         static int32 selected_component = 0;
-        static se::Array component_names {
+        static Array component_names {
              "TransformComponent", "MeshComponent"
         };
-        se::Array<Entity> entities = world.GetAliveEntities();
+        Array<Entity> entities = world.GetAliveEntities();
 
         ImGui::SeparatorText("Entity Pannal");
         static int count = 0;
@@ -605,14 +605,14 @@ void App::Update(float delta_time)
             }
         }
 
-        se::Array<se::String> entity_names;
-        se::Array<const char*> temp_entity_names;
+        Array<String> entity_names;
+        Array<const char*> temp_entity_names;
 
         entity_names.Reserve(entities.Len());
         temp_entity_names.Reserve(entity_names.Len());
         std::ranges::for_each(entities, [&entity_names, &temp_entity_names](Entity entity)
         {
-            se::String name = se::String::Format("Entity {}, Gen: {}", entity.GetId(), entity.GetGeneration());
+            String name = String::Format("Entity {}, Gen: {}", entity.GetId(), entity.GetGeneration());
             temp_entity_names.Push(name.CStr());
             entity_names.Push(std::move(name));
         });
@@ -828,7 +828,7 @@ void App::Render() const
                 static bool is_first = true;
                 if (is_first)
                 {
-                    world.AddSystem<schedules::Update>([&](Query<const TransformComponent&, const MeshComponent&> query)
+                    world.AddSystem<schedule::Update>([&](Query<const TransformComponent&, const MeshComponent&> query)
                     {
                         using namespace se::math;
                         for (const auto& [transform_comp, mesh_comp] : query)
@@ -843,7 +843,7 @@ void App::Render() const
                 }
 
                 // 임시 코드
-                world.RunSchedule<schedules::Update>();
+                world.RunSchedule<schedule::Update>();
 
                 // Render ImGui
                 if (window_id == main_window_id)

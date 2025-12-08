@@ -4,7 +4,7 @@
 
 #include "SDL3/SDL.h"
 #include "SimpleEngine/Core/HAL/PlatformTypes.h"
-#include "SimpleEngine/World/World.h"
+#include "SimpleEngine/ECS/World.h"
 
 
 namespace se::rendering
@@ -84,7 +84,7 @@ private:
 
 private:
     std::unique_ptr<se::rendering::PSOManager> pso_manager;
-    mutable se::world::World world;
+    mutable se::ecs::World world;
 
 private:
     SDL_WindowID main_window_id = 0;
