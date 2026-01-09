@@ -77,8 +77,9 @@ struct MeshInfo
 };
 
 static HashMap<MeshTypes, MeshInfo> mesh_infos;
-
 static Camera my_camera;
+
+static SDL_Window* focused_window = nullptr;
 
 
 App::App()
@@ -454,6 +455,8 @@ void App::ProcessPlatformEvents()
             DestroyWindow(event.window.windowID);
             break;
         }
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+            focused_window = GetWindow(event.window.windowID);
         default:
             break;
         }
@@ -471,13 +474,13 @@ void App::Update(float delta_time)
 
     if (m_buttons & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT))
     {
-        {
-            using namespace se::math;
+        SDL_SetWindowRelativeMouseMode(focused_window, true);
 
-            const Quaternion yaw_q = Quaternion::FromAxisAngle(Vector3::UnitZ(), DegreesToRadians(-x_delta * my_camera.sensitivity));
+        {
+            const Quaternion yaw_q = Quaternion::FromAxisAngle(Vector3::UnitZ(), math::DegreesToRadians(-x_delta * my_camera.sensitivity));
             const Quaternion pitch_q = Quaternion::FromAxisAngle(
                 my_camera.rotation.GetRightVector(),
-                DegreesToRadians(-y_delta * my_camera.sensitivity)
+                math::DegreesToRadians(-y_delta * my_camera.sensitivity)
             );
             my_camera.rotation = yaw_q * pitch_q * my_camera.rotation;
         }
@@ -506,6 +509,10 @@ void App::Update(float delta_time)
         {
             my_camera.position -= Vector3::UnitZ() * my_camera.camera_speed * delta_time;
         }
+    }
+    else
+    {
+        SDL_SetWindowRelativeMouseMode(focused_window, false);
     }
 
     // Start the Dear ImGui frame
@@ -647,8 +654,6 @@ void App::Update(float delta_time)
                 ImGui::Checkbox("Local Rotation", &local_rotation);
 
                 {
-                    using namespace se::math;
-
                     Vector3 axis_x, axis_y, axis_z;
                     if (local_rotation)
                     {
@@ -810,12 +815,10 @@ void App::Render() const
 
                 Matrix4x4 vp_mat;
                 {
-                    using namespace se::math;
-
-                    Matrix4x4 view_mat = TransformUtility::MakeViewMatrix(
+                    Matrix4x4 view_mat = math::TransformUtility::MakeViewMatrix(
                         my_camera.position, my_camera.position + my_camera.rotation.GetForwardVector(), Vector3::UnitZ()
                     );
-                    Matrix4x4 projection_mat = TransformUtility::MakePerspectiveMatrix(
+                    Matrix4x4 projection_mat = math::TransformUtility::MakePerspectiveMatrix(
                         Radian{ my_camera.fov },
                         static_cast<double>(draw_data->DisplaySize.x / draw_data->DisplaySize.y),
                         0.1, 10000.0
@@ -830,10 +833,9 @@ void App::Render() const
                 {
                     world.AddSystem<schedule::Update>([&](Query<const TransformComponent&, const MeshComponent&> query)
                     {
-                        using namespace se::math;
                         for (const auto& [transform_comp, mesh_comp] : query)
                         {
-                            Matrix4x4 model = TransformUtility::MakeModelMatrix(
+                            Matrix4x4 model = math::TransformUtility::MakeModelMatrix(
                                 transform_comp.position, transform_comp.rotation, transform_comp.scale
                             );
                             render_primitive(model * vp_mat, mesh_comp.type);
