@@ -5,12 +5,16 @@
 #include "SDL3/SDL.h"
 #include "SimpleEngine/Core/HAL/PlatformTypes.h"
 #include "SimpleEngine/ECS/World.h"
+#include "SimpleEngine/Core/Container/Array.h"
 
 
 namespace se::rendering
 {
     class PSOManager;
+    class GpuResourceManager;
 }
+
+struct Mesh;
 
 class App
 {
@@ -56,7 +60,14 @@ public:
         TargetFrameTime = 1.0 / static_cast<double>(TargetFps);
     }
 
-    [[nodiscard]] SDL_Window* GetWindow(SDL_WindowID window_id) const { return windows.at(window_id); }
+    [[nodiscard]] SDL_Window* GetWindow(SDL_WindowID window_id) const
+    {
+        if (const auto it = windows.find(window_id); it != windows.end())
+        {
+            return it->second;
+        }
+        return nullptr;
+    }
     [[nodiscard]] SDL_Window* GetMainWindow() const { return GetWindow(main_window_id); }
 
     SDL_WindowID CreateWindow(const char* title, int32 x, int32 y, int32 width, int32 height, uint32 flags);
@@ -96,6 +107,6 @@ private:
 
     SDL_GPUTexture* depth_texture = nullptr;
 
-    SDL_GPUBuffer* vertex_buffer = nullptr;
-    SDL_GPUBuffer* index_buffer = nullptr;
+    std::unique_ptr<se::rendering::GpuResourceManager> gpu_resource_manager;
+    se::Array<std::shared_ptr<struct Mesh>> loaded_meshes;
 };

@@ -6,13 +6,16 @@
 #include <ranges>
 
 #include "SimpleEngine/Core/Math/Math.h"
+#include "SimpleEngine/Geometry/Circle.h"
+#include "SimpleEngine/Geometry/Corn.h"
+#include "SimpleEngine/Geometry/Cube.h"
+#include "SimpleEngine/Geometry/Cylinder.h"
+#include "SimpleEngine/Geometry/Plane.h"
+#include "SimpleEngine/Geometry/Torus.h"
+#include "SimpleEngine/Geometry/Vertex.h"
 #include "SimpleEngine/Rendering/Manager/PSOManager.h"
 #include "SimpleEngine/ECS/Query.h"
 #include "SimpleEngine/ECS/Components/TransformComponent.h"
-#include "SimpleEngine/Rendering/Memory/GpuResourceManager.h"
-
-#include "Mesh.h"
-#include "AssetLoader.h"
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -51,11 +54,29 @@ struct Camera
     Degree<double> fov = 90_deg;
 };
 
-struct MeshComponent
+enum class MeshTypes : uint8
 {
-    std::shared_ptr<Mesh> mesh;
+    Circle,
+    Corn,
+    Cube,
+    Cylinder,
+    Plane,
+    Torus,
 };
 
+struct MeshComponent
+{
+    MeshTypes type = MeshTypes::Cube;
+};
+
+struct MeshInfo
+{
+    uint32 index_count = 0;
+    uint32 base_vertex = 0;
+    uint32 index_buffer_offset = 0;
+};
+
+static HashMap<MeshTypes, MeshInfo> mesh_infos;
 static Camera my_camera;
 
 static SDL_Window* focused_window = nullptr;
@@ -163,9 +184,6 @@ void App::Initialize()
     pso_manager = std::make_unique<PSOManager>(gpu_device);
     pso_manager->SetShaderCacheProvider<editor::rendering::CompilingShaderProvider>();
 
-    // GPU Resource Manager 초기화
-    gpu_resource_manager = std::make_unique<GpuResourceManager>(gpu_device);
-
     // 셰이더 컴파일때 사용하는 솔루션 경로
     const std::filesystem::path root = PROJECT_ROOT_DIR;
 
@@ -182,26 +200,14 @@ void App::Initialize()
         {
             .location = 0, // POSITION
             .buffer_slot = 0,
-            .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
+            .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3, // POSITION
             .offset = offsetof(Vertex, position)
         },
         {
-            .location = 1, // NORMAL
+            .location = 1, // COLOR0
             .buffer_slot = 0,
-            .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
-            .offset = offsetof(Vertex, normal)
-        },
-        {
-            .location = 2, // TANGENT
-            .buffer_slot = 0,
-            .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
-            .offset = offsetof(Vertex, tangent)
-        },
-        {
-            .location = 3, // TEXCOORD
-            .buffer_slot = 0,
-            .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
-            .offset = offsetof(Vertex, tex_coord)
+            .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4, // COLOR0
+            .offset = offsetof(Vertex, color)
         },
     };
 
@@ -261,6 +267,87 @@ void App::Initialize()
         .sample_count = SDL_GPU_SAMPLECOUNT_1,
     };
     depth_texture = SDL_CreateGPUTexture(gpu_device, &texture_info);
+
+    // 모든 메시 데이터를 하나의 버퍼에 업로드
+    constexpr size_t total_vertex_size = sizeof(circle_vertices) + sizeof(corn_vertices) + sizeof(cube_vertices) + sizeof(cylinder_vertices) + sizeof(
+        plane_vertices) + sizeof(torus_vertices);
+    constexpr size_t total_index_size = sizeof(circle_indices) + sizeof(corn_indices) + sizeof(cube_indices) + sizeof(cylinder_indices) + sizeof(
+        plane_indices) + sizeof(torus_indices);
+
+    // 버텍스 버퍼
+    SDL_GPUBufferCreateInfo vertex_buffer_info = {
+        .usage = SDL_GPU_BUFFERUSAGE_VERTEX,
+        .size = total_vertex_size
+    };
+    vertex_buffer = SDL_CreateGPUBuffer(gpu_device, &vertex_buffer_info);
+
+    // 인덱스 버퍼
+    SDL_GPUBufferCreateInfo index_buffer_info = {
+        .usage = SDL_GPU_BUFFERUSAGE_INDEX,
+        .size = total_index_size
+    };
+    index_buffer = SDL_CreateGPUBuffer(gpu_device, &index_buffer_info);
+
+    SDL_GPUTransferBufferCreateInfo transfer_info = {
+        .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD,
+        .size = total_vertex_size + total_index_size
+    };
+    SDL_GPUTransferBuffer* transfer_buffer = SDL_CreateGPUTransferBuffer(gpu_device, &transfer_info);
+    void* transfer_data = SDL_MapGPUTransferBuffer(gpu_device, transfer_buffer, false);
+
+    // 데이터 복사 및 정보 저장
+    uint8* vertex_dst = static_cast<uint8*>(transfer_data);
+    uint8* index_dst = vertex_dst + total_vertex_size;
+    uint32 current_vertex_offset = 0;
+    uint32 current_index_offset = 0;
+    uint32 base_vertex = 0;
+
+    auto upload_mesh = [&](MeshTypes type, const auto& vertices, const auto& indices)
+    {
+        const size_t vertex_size = sizeof(vertices);
+        const size_t index_size = sizeof(indices);
+
+        std::memcpy(vertex_dst + current_vertex_offset, vertices, vertex_size);
+        std::memcpy(index_dst + current_index_offset, indices, index_size);
+
+        mesh_infos[type] = {
+            .index_count = static_cast<uint32>(std::size(indices)),
+            .base_vertex = base_vertex,
+            .index_buffer_offset = current_index_offset
+        };
+
+        current_vertex_offset += vertex_size;
+        current_index_offset += index_size;
+        base_vertex += static_cast<uint32>(std::size(vertices));
+    };
+
+    upload_mesh(MeshTypes::Circle, circle_vertices, circle_indices);
+    upload_mesh(MeshTypes::Corn, corn_vertices, corn_indices);
+    upload_mesh(MeshTypes::Cube, cube_vertices, cube_indices);
+    upload_mesh(MeshTypes::Cylinder, cylinder_vertices, cylinder_indices);
+    upload_mesh(MeshTypes::Plane, plane_vertices, plane_indices);
+    upload_mesh(MeshTypes::Torus, torus_vertices, torus_indices);
+
+    SDL_UnmapGPUTransferBuffer(gpu_device, transfer_buffer);
+
+    SDL_GPUCommandBuffer* upload_cmd = SDL_AcquireGPUCommandBuffer(gpu_device);
+    SDL_GPUCopyPass* copy_pass = SDL_BeginGPUCopyPass(upload_cmd);
+    {
+        SDL_GPUTransferBufferLocation vertex_location = { .transfer_buffer = transfer_buffer, .offset = 0 };
+        SDL_GPUBufferRegion vertex_region = { .buffer = vertex_buffer, .offset = 0, .size = total_vertex_size };
+        SDL_UploadToGPUBuffer(copy_pass, &vertex_location, &vertex_region, false);
+
+        SDL_GPUTransferBufferLocation index_location = { .transfer_buffer = transfer_buffer, .offset = total_vertex_size };
+        SDL_GPUBufferRegion index_region = { .buffer = index_buffer, .offset = 0, .size = total_index_size };
+        SDL_UploadToGPUBuffer(copy_pass, &index_location, &index_region, false);
+    }
+    SDL_EndGPUCopyPass(copy_pass);
+    SDL_SubmitGPUCommandBuffer(upload_cmd);
+    SDL_ReleaseGPUTransferBuffer(gpu_device, transfer_buffer);
+
+    world.SpawnEntity()
+         .AddComponent<TransformComponent>()
+         .AddComponent<MeshComponent>(); // 기본으로 MeshComponent도 추가
 }
 
 void App::Run()
@@ -331,6 +418,8 @@ void App::Release()
     }
     windows.clear();
 
+    SDL_ReleaseGPUBuffer(gpu_device, vertex_buffer);
+    SDL_ReleaseGPUBuffer(gpu_device, index_buffer);
     SDL_ReleaseGPUGraphicsPipeline(gpu_device, pipeline);
 
     // GPU Device Release
@@ -367,13 +456,7 @@ void App::ProcessPlatformEvents()
             break;
         }
         case SDL_EVENT_WINDOW_FOCUS_GAINED:
-        {
-            if (SDL_Window* window = SDL_GetWindowFromID(event.window.windowID))
-            {
-                focused_window = window;
-            }
-            break;
-        }
+            focused_window = GetWindow(event.window.windowID);
         default:
             break;
         }
@@ -439,43 +522,6 @@ void App::Update(float delta_time)
 
     ImGui::ShowDemoWindow();
 
-    ImGui::Begin("Import Asset");
-    {
-        static char file_path[256] = "C:/path/to/mesh.obj";
-        ImGui::InputText("File Path", file_path, sizeof(file_path));
-
-        if (ImGui::Button("Load Mesh"))
-        {
-            std::filesystem::path path(file_path);
-            if (std::filesystem::exists(path))
-            {
-                auto mesh = AssetLoader::LoadStaticMesh(path);
-                if (mesh)
-                {
-                    mesh->id = asset::AssetId(Guid::NewGuid()); // Generate ID
-                    if (gpu_resource_manager->UploadMesh(
-                        mesh->id,
-                        mesh->vertices.Data(), static_cast<uint32>(mesh->vertices.Len() * sizeof(Vertex)),
-                        mesh->indices.Data(), static_cast<uint32>(mesh->indices.Len() * sizeof(uint32))
-                    ))
-                    {
-                        loaded_meshes.Push(mesh);
-
-                        // Automatically spawn an entity with this mesh
-                        world.SpawnEntity()
-                             .AddComponent<TransformComponent>()
-                             .AddComponent<MeshComponent>(mesh);
-                    }
-                    else
-                    {
-                         // Failed to upload
-                    }
-                }
-            }
-        }
-    }
-    ImGui::End();
-
     ImGui::Begin("Window Pannal");
     {
         static FixedArray<char, 256> window_title = {};
@@ -530,7 +576,8 @@ void App::Update(float delta_time)
             for (int i = 0; i < count; ++i)
             {
                 world.SpawnEntity()
-                     .AddComponent<TransformComponent>();
+                     .AddComponent<TransformComponent>()
+                     .AddComponent<MeshComponent>();
             }
         }
         if (ImGui::Button("Create Entity"))
@@ -560,9 +607,7 @@ void App::Update(float delta_time)
                 }
                 else if (selected_component == 1)
                 {
-                    // Use the first loaded mesh if available
-                    std::shared_ptr<Mesh> default_mesh = loaded_meshes.IsEmpty() ? nullptr : loaded_meshes[0];
-                    world.AddComponent<MeshComponent>(entities[selected_entity], default_mesh);
+                    world.AddComponent<MeshComponent>(entities[selected_entity]);
                 }
             }
         }
@@ -636,14 +681,11 @@ void App::Update(float delta_time)
             if (Optional<MeshComponent&> mesh_comp_opt = world.TryGetComponent<MeshComponent>(entity))
             {
                 MeshComponent& mesh_comp = mesh_comp_opt.Value();
-                if (mesh_comp.mesh)
-                {
-                    ImGui::Text("Mesh: %s", mesh_comp.mesh->name.CStr());
-                }
-                else
-                {
-                    ImGui::Text("Mesh: None");
-                }
+
+                int idx = static_cast<int>(mesh_comp.type);
+                const char* mesh_names[] = { "Circle", "Corn", "Cube", "Cylinder", "Plane", "Torus", };
+                ImGui::Combo("Mesh", &idx, mesh_names, std::size(mesh_names));
+                mesh_comp.type = static_cast<MeshTypes>(idx);
             }
         }
         else
@@ -702,6 +744,7 @@ void App::Render() const
 
         // Swapchain Texture 가져오기 (화면에 그릴 캔버스 역할)
         SDL_GPUTexture* swapchain_texture;
+        // SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, window, &swapchain_texture, nullptr, nullptr);
         SDL_WaitAndAcquireGPUSwapchainTexture(command_buffer, window, &swapchain_texture, nullptr, nullptr);
 
         // Rendering
@@ -737,6 +780,37 @@ void App::Render() const
 
             SDL_GPURenderPass* render_pass = SDL_BeginGPURenderPass(command_buffer, &target_info, 1, &depth_stencil_target_info);
             {
+                auto render_primitive = [&](const Matrix4x4& mvp, MeshTypes mesh_type)
+                {
+                    Matrix4x4f mvpf;
+                    for (int i = 0; i < 16; ++i)
+                    {
+                        const double* value = mvp.GetData() + i;
+                        *(mvpf.GetData() + i) = static_cast<float>(*value);
+                    }
+
+                    SDL_PushGPUVertexUniformData(command_buffer, 0, &mvpf, sizeof(mvpf));
+
+                    const auto& mesh_info = mesh_infos[mesh_type];
+
+                    // Vertex Buffer 바인딩
+                    const SDL_GPUBufferBinding vertex_binding = {
+                        .buffer = vertex_buffer,
+                        .offset = 0 // Vertex buffer offset is handled by base_vertex in DrawGPUIndexedPrimitives
+                    };
+                    SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_binding, 1);
+
+                    // Index Buffer 바인딩
+                    const SDL_GPUBufferBinding index_binding = {
+                        .buffer = index_buffer,
+                        .offset = mesh_info.index_buffer_offset
+                    };
+                    SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_16BIT);
+
+                    // 삼각형 그리기 (인덱스 사용하는 경우)
+                    SDL_DrawGPUIndexedPrimitives(render_pass, mesh_info.index_count, 1, 0, static_cast<int32_t>(mesh_info.base_vertex), 0);
+                };
+
                 SDL_BindGPUGraphicsPipeline(render_pass, pipeline);
 
                 Matrix4x4 vp_mat;
@@ -753,48 +827,6 @@ void App::Render() const
                     vp_mat = view_mat * projection_mat;
                 }
 
-                auto render_mesh = [&](const Matrix4x4& model, const std::shared_ptr<Mesh>& mesh)
-                {
-                    if (!mesh) return;
-
-                    const GpuBufferSlice& slice = gpu_resource_manager->GetSlice(mesh->id);
-                    if (!slice.IsValid()) return;
-
-                    Matrix4x4 mvp = model * vp_mat;
-                    Matrix4x4f mvpf;
-                    for (int i = 0; i < 16; ++i)
-                    {
-                        const double* value = mvp.GetData() + i;
-                        *(mvpf.GetData() + i) = static_cast<float>(*value);
-                    }
-
-                    SDL_PushGPUVertexUniformData(command_buffer, 0, &mvpf, sizeof(mvpf));
-
-                    // Vertex Buffer 바인딩
-                    const SDL_GPUBufferBinding vertex_binding = {
-                        .buffer = slice.buffer,
-                        .offset = slice.offset
-                    };
-                    SDL_BindGPUVertexBuffers(render_pass, 0, &vertex_binding, 1);
-
-                    // Index Buffer 바인딩
-                    const SDL_GPUBufferBinding index_binding = {
-                        .buffer = slice.buffer,
-                        .offset = slice.index_offset
-                    };
-                    SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
-
-                    // Draw Sections
-                    if (mesh->type == MeshType::Static)
-                    {
-                        auto static_mesh = static_cast<StaticMesh*>(mesh.get());
-                        for (const auto& section : static_mesh->sections)
-                        {
-                            SDL_DrawGPUIndexedPrimitives(render_pass, section.index_count, 1, section.index_start, 0, 0);
-                        }
-                    }
-                };
-
                 // 임시 코드
                 static bool is_first = true;
                 if (is_first)
@@ -806,7 +838,7 @@ void App::Render() const
                             Matrix4x4 model = math::TransformUtility::MakeModelMatrix(
                                 transform_comp.position, transform_comp.rotation, transform_comp.scale
                             );
-                            render_mesh(model, mesh_comp.mesh);
+                            render_primitive(model * vp_mat, mesh_comp.type);
                         }
                     });
                     is_first = false;
