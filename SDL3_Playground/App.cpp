@@ -316,6 +316,7 @@ void App::Release()
 
     SDL_WaitForGPUIdle(gpu_device);
 
+    gpu_resource_manager.reset();
     pso_manager.reset();
 
     // ImGui Release

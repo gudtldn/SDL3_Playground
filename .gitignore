@@ -12,7 +12,7 @@ riderModule.iml
 *.slo
 *.lo
 *.o
-*.obj
+#*.obj
 
 # Fortran module files
 *.mod
