@@ -31,7 +31,7 @@ endforeach ()
 # UTF-8 인코딩 사용
 if (MSVC)
     add_compile_options(
-            /source-charset:utf-8
+            /utf-8
             /Zc:preprocessor # MSVC 전처리기 최신 표준 기능을 활성화
             /W4              # 경고 수준을 최고 수준으로 설정
             /MP              # 멀티스레드 빌드 사용

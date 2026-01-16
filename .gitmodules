@@ -1,6 +1,3 @@
 [submodule "ThirdParty/SimpleEngine"]
 	path = ThirdParty/SimpleEngine
 	url = https://github.com/gudtldn/SimpleEngine.git
-[submodule "ThirdParty/assimp"]
-	path = ThirdParty/assimp
-	url = https://github.com/assimp/assimp.git
