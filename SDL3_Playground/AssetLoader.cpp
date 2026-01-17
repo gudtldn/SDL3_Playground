@@ -30,13 +30,20 @@ std::shared_ptr<StaticMesh> AssetLoader::LoadStaticMesh(const std::filesystem::p
     // Note: This ignores the node hierarchy transform!
     // Ideally we should traverse the node graph and bake transforms if we want a single static mesh representing the whole scene frozen.
     // For now, let's just merge all meshes.
-    
+
+    uint32 total_vertices = 0;
+    uint32 total_indices = 0;
+    for (usize i = 0; i < scene->mNumMeshes; ++i)
+    {
+        total_vertices += scene->mMeshes[i]->mNumVertices;
+        total_indices += scene->mMeshes[i]->mNumFaces * 3;
+    }
+
+    mesh->vertices.Reserve(total_vertices);
+    mesh->indices.Reserve(total_indices);
+
     uint32 vertex_offset = 0;
     uint32 index_offset = 0;
-
-    mesh->vertices.Reserve(scene->mNumMeshes * 1000); // Heuristic reserve
-    mesh->indices.Reserve(scene->mNumMeshes * 3000);
-
     for (unsigned int i = 0; i < scene->mNumMeshes; ++i)
     {
         aiMesh* ai_mesh = scene->mMeshes[i];
@@ -50,17 +57,17 @@ std::shared_ptr<StaticMesh> AssetLoader::LoadStaticMesh(const std::filesystem::p
         {
             Vertex vertex;
             vertex.position = Vector3f(ai_mesh->mVertices[v].x, ai_mesh->mVertices[v].y, ai_mesh->mVertices[v].z);
-            
+
             if (ai_mesh->HasNormals())
             {
                 vertex.normal = Vector3f(ai_mesh->mNormals[v].x, ai_mesh->mNormals[v].y, ai_mesh->mNormals[v].z);
             }
-            
+
             if (ai_mesh->HasTangentsAndBitangents())
             {
                 vertex.tangent = Vector3f(ai_mesh->mTangents[v].x, ai_mesh->mTangents[v].y, ai_mesh->mTangents[v].z);
             }
-            
+
             if (ai_mesh->mTextureCoords[0])
             {
                 vertex.tex_coord = Vector2f(ai_mesh->mTextureCoords[0][v].x, ai_mesh->mTextureCoords[0][v].y);
