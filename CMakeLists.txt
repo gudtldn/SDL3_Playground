@@ -61,6 +61,7 @@ add_executable(SDL3_Playground
 add_subdirectory(ThirdParty)
 
 find_package(SDL3 REQUIRED)
+find_package(SDL3_image REQUIRED)
 target_link_libraries(SDL3_Playground PRIVATE
         EngineCore
 
@@ -69,6 +70,7 @@ target_link_libraries(SDL3_Playground PRIVATE
 
         # SDL3
         SDL3::SDL3
+        SDL3_image::SDL3_image
         SDL3_shadercross::SDL3_shadercross
 
         # ImGui
