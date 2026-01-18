@@ -7,8 +7,8 @@ struct VertexInput
 {
     float4 position : POSITION;
     float3 normal : NORMAL;
-    float3 tangent : TANGENT;
     float2 tex_coord : TEXCOORD;
+    float4 tangent : TANGENT;
 };
 
 struct VertexOutput

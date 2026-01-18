@@ -65,7 +65,7 @@ std::shared_ptr<StaticMesh> AssetLoader::LoadStaticMesh(const std::filesystem::p
 
             if (ai_mesh->HasTangentsAndBitangents())
             {
-                vertex.tangent = Vector3f(ai_mesh->mTangents[v].x, ai_mesh->mTangents[v].y, ai_mesh->mTangents[v].z);
+                vertex.tangent = Vector4f(ai_mesh->mTangents[v].x, ai_mesh->mTangents[v].y, ai_mesh->mTangents[v].z, 1.0f);
             }
 
             if (ai_mesh->mTextureCoords[0])

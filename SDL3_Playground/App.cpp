@@ -192,16 +192,16 @@ void App::Initialize()
             .offset = offsetof(Vertex, normal)
         },
         {
-            .location = 2, // TANGENT
-            .buffer_slot = 0,
-            .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3,
-            .offset = offsetof(Vertex, tangent)
-        },
-        {
-            .location = 3, // TEXCOORD
+            .location = 2, // TEXCOORD
             .buffer_slot = 0,
             .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2,
             .offset = offsetof(Vertex, tex_coord)
+        },
+        {
+            .location = 3, // TANGENT
+            .buffer_slot = 0,
+            .format = SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4,
+            .offset = offsetof(Vertex, tangent)
         },
     };
 

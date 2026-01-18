@@ -28,17 +28,17 @@ struct Mesh
     String name;
 };
 
-struct Vertex
+struct alignas(16) Vertex
 {
     Vector3f position;
     Vector3f normal;
-    Vector3f tangent;
     Vector2f tex_coord;
+    Vector4f tangent;
 };
 
 struct SkinVertex
 {
-    int32 bone_indices[4];
+    uint32 bone_indices[4];
     float bone_weights[4];
 };
 
