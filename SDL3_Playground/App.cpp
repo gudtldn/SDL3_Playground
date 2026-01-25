@@ -454,8 +454,10 @@ void App::Update(float delta_time)
                 if (mesh)
                 {
                     mesh->id = asset::AssetId(Guid::NewGuid()); // Generate ID
+
+                    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(gpu_device);
                     if (gpu_resource_manager->UploadMesh(
-                        mesh->id,
+                        cmd, mesh->id,
                         mesh->vertices.Data(), static_cast<uint32>(mesh->vertices.Len() * sizeof(Vertex)),
                         mesh->indices.Data(), static_cast<uint32>(mesh->indices.Len() * sizeof(uint32))
                     ))
@@ -466,10 +468,13 @@ void App::Update(float delta_time)
                         world.SpawnEntity()
                              .AddComponent<TransformComponent>()
                              .AddComponent<MeshComponent>(mesh);
+
+                        SDL_SubmitGPUCommandBuffer(cmd);
                     }
                     else
                     {
                          // Failed to upload
+                        SDL_CancelGPUCommandBuffer(cmd);
                     }
                 }
             }
