@@ -11,8 +11,11 @@
 #include "SimpleEngine/ECS/Components/TransformComponent.h"
 #include "SimpleEngine/Rendering/Memory/GpuResourceManager.h"
 
-#include "Mesh.h"
-#include "AssetLoader.h"
+#include "SimpleEngine/Asset/Pipeline/AssetImporter.h"
+#include "SimpleEngine/Asset/Pipeline/Factories/StaticMeshFactory.h"
+#include "SimpleEngine/Asset/Pipeline/Translators/AssimpTranslator.h"
+#include "SimpleEngine/Asset/Types/MeshTypes.h"
+#include "SimpleEngine/Gfx/MeshPrimitives.h"
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
@@ -20,6 +23,7 @@
 #include "Rendering/Compiler/Provider.h"
 #include "SDL3/SDL.h"
 #include "SDL3_shadercross/SDL_shadercross.h"
+#include "SimpleEngine/Utility/StringUtils.h"
 #include "tracy/Tracy.hpp"
 
 #pragma warning(disable: 4996) // deprecated warning
@@ -28,6 +32,8 @@ using namespace se;
 using namespace se::core;
 using namespace se::ecs;
 using namespace se::rendering;
+
+using Vertex = se::gfx::Vertex;
 
 double App::CurrentTime = 0.0;
 double App::LastTime = 0.0;
@@ -53,7 +59,7 @@ struct Camera
 
 struct MeshComponent
 {
-    std::shared_ptr<Mesh> mesh;
+    std::shared_ptr<LoadedMesh> mesh;
 };
 
 static Camera my_camera;
@@ -78,6 +84,10 @@ void App::Initialize()
 
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD | SDL_INIT_EVENTS);
     SDL_ShaderCross_Init();
+
+    asset_importer = std::make_unique<asset::AssetImporter>();
+    asset_importer->RegisterTranslator<asset::AssimpTranslator>();
+    asset_importer->RegisterFactory<asset::StaticMeshFactory>();
 
     /* GPU Device 초기화 */
     // 지원할 셰이더 포맷들 설정
@@ -338,6 +348,8 @@ void App::Release()
     SDL_DestroyGPUDevice(gpu_device);
     gpu_device = nullptr;
 
+    asset_importer.reset();
+
     SDL_ShaderCross_Quit();
     SDL_Quit();
 }
@@ -450,31 +462,37 @@ void App::Update(float delta_time)
             std::filesystem::path path(file_path);
             if (std::filesystem::exists(path))
             {
-                auto mesh = AssetLoader::LoadStaticMesh(path);
-                if (mesh)
+                auto assets = asset_importer->Import(path);
+                for (const auto& asset : assets)
                 {
-                    mesh->id = asset::AssetId(Guid::NewGuid()); // Generate ID
-
-                    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(gpu_device);
-                    if (gpu_resource_manager->UploadMesh(
-                        cmd, mesh->id,
-                        mesh->vertices.Data(), static_cast<uint32>(mesh->vertices.Len() * sizeof(Vertex)),
-                        mesh->indices.Data(), static_cast<uint32>(mesh->indices.Len() * sizeof(uint32))
-                    ))
+                    if (auto mesh = std::dynamic_pointer_cast<asset::StaticMesh>(asset))
                     {
-                        loaded_meshes.Push(mesh);
+                        auto loaded_mesh = std::make_shared<LoadedMesh>();
+                        loaded_mesh->id = asset::AssetId(Guid::NewGuid());
+                        loaded_mesh->name = utility::ToString(path.filename().u8string()); // Use filename as name
+                        loaded_mesh->mesh_data = mesh;
 
-                        // Automatically spawn an entity with this mesh
-                        world.SpawnEntity()
-                             .AddComponent<TransformComponent>()
-                             .AddComponent<MeshComponent>(mesh);
+                        SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(gpu_device);
+                        if (gpu_resource_manager->UploadMesh(
+                            cmd, loaded_mesh->id,
+                            mesh->vertices.Data(), static_cast<uint32>(mesh->vertices.Len() * sizeof(Vertex)),
+                            mesh->indices.Data(), static_cast<uint32>(mesh->indices.Len() * sizeof(uint32))
+                        ))
+                        {
+                            loaded_meshes.Push(loaded_mesh);
 
-                        SDL_SubmitGPUCommandBuffer(cmd);
-                    }
-                    else
-                    {
-                         // Failed to upload
-                        SDL_CancelGPUCommandBuffer(cmd);
+                            // Automatically spawn an entity with this mesh
+                            world.SpawnEntity()
+                                 .AddComponent<TransformComponent>()
+                                 .AddComponent<MeshComponent>(loaded_mesh);
+
+                            SDL_SubmitGPUCommandBuffer(cmd);
+                        }
+                        else
+                        {
+                             // Failed to upload
+                            SDL_CancelGPUCommandBuffer(cmd);
+                        }
                     }
                 }
             }
@@ -567,7 +585,7 @@ void App::Update(float delta_time)
                 else if (selected_component == 1)
                 {
                     // Use the first loaded mesh if available
-                    std::shared_ptr<Mesh> default_mesh = loaded_meshes.IsEmpty() ? nullptr : loaded_meshes[0];
+                    std::shared_ptr<LoadedMesh> default_mesh = loaded_meshes.IsEmpty() ? nullptr : loaded_meshes[0];
                     world.AddComponent<MeshComponent>(entities[selected_entity], default_mesh);
                 }
             }
@@ -599,7 +617,7 @@ void App::Update(float delta_time)
         if (selected_entity >= 0 && selected_entity < entities.Len())
         {
             const Entity entity = entities[selected_entity];
-            ImGui::Text(std::format("Selected Entity ID: {}", entity.GetId()).c_str());
+            ImGui::TextUnformatted(std::format("Selected Entity ID: {}", entity.GetId()).c_str());
 
             if (Optional<TransformComponent&> transform_comp_opt = world.TryGetComponent<TransformComponent>(entity))
             {
@@ -759,9 +777,9 @@ void App::Render() const
                     vp_mat = view_mat * projection_mat;
                 }
 
-                auto render_mesh = [&](const Matrix4x4& model, const std::shared_ptr<Mesh>& mesh)
+                auto render_mesh = [&](const Matrix4x4& model, const std::shared_ptr<LoadedMesh>& mesh)
                 {
-                    if (!mesh) return;
+                    if (!mesh || !mesh->mesh_data) return;
 
                     const GpuBufferSlice& slice = gpu_resource_manager->GetSlice(mesh->id);
                     if (!slice.IsValid()) return;
@@ -791,13 +809,9 @@ void App::Render() const
                     SDL_BindGPUIndexBuffer(render_pass, &index_binding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
                     // Draw Sections
-                    if (mesh->type == MeshType::Static)
+                    for (const auto& section : mesh->mesh_data->sections)
                     {
-                        auto static_mesh = static_cast<StaticMesh*>(mesh.get());
-                        for (const auto& section : static_mesh->sections)
-                        {
-                            SDL_DrawGPUIndexedPrimitives(render_pass, section.index_count, 1, section.index_start, 0, 0);
-                        }
+                        SDL_DrawGPUIndexedPrimitives(render_pass, section.index_count, 1, section.index_start, 0, 0);
                     }
                 };
 

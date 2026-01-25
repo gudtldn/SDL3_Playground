@@ -7,14 +7,30 @@
 #include "SimpleEngine/ECS/World.h"
 #include "SimpleEngine/Core/Container/Array.h"
 
+#include "SimpleEngine/Asset/AssetId.h"
+#include "SimpleEngine/Core/Container/String.h"
 
-namespace se::rendering
+
+namespace se
+{
+namespace rendering
 {
     class PSOManager;
     class GpuResourceManager;
 }
+namespace asset
+{
+    class AssetImporter;
+    struct StaticMesh;
+}
+}
 
-struct Mesh;
+struct LoadedMesh
+{
+    se::asset::AssetId id;
+    se::String name;
+    std::shared_ptr<se::asset::StaticMesh> mesh_data;
+};
 
 class App
 {
@@ -94,6 +110,7 @@ private:
     bool quit_requested = false;
 
 private:
+    std::unique_ptr<se::asset::AssetImporter> asset_importer;
     std::unique_ptr<se::rendering::PSOManager> pso_manager;
     mutable se::ecs::World world;
 
@@ -108,5 +125,5 @@ private:
     SDL_GPUTexture* depth_texture = nullptr;
 
     std::unique_ptr<se::rendering::GpuResourceManager> gpu_resource_manager;
-    se::Array<std::shared_ptr<struct Mesh>> loaded_meshes;
+    se::Array<std::shared_ptr<LoadedMesh>> loaded_meshes;
 };

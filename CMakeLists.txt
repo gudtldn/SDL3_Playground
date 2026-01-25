@@ -53,7 +53,6 @@ add_compile_definitions(
 add_executable(SDL3_Playground
         SDL3_Playground/main.cpp
         SDL3_Playground/App.cpp
-        SDL3_Playground/AssetLoader.cpp
         ThirdParty/SimpleEngine/Editor/Source/Rendering/Compiler/Compiler.cpp
         ThirdParty/SimpleEngine/Editor/Source/Rendering/Compiler/Provider.cpp
 )
