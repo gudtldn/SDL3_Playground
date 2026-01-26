@@ -74,9 +74,6 @@ target_link_libraries(SDL3_Playground PRIVATE
 
         # ImGui
         imgui
-
-        # Assimp
-        assimp::assimp
 )
 
 target_include_directories(SDL3_Playground PRIVATE
