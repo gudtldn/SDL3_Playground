@@ -23,6 +23,7 @@
 #include "Rendering/Compiler/Provider.h"
 #include "SDL3/SDL.h"
 #include "SDL3_shadercross/SDL_shadercross.h"
+#include "SimpleEngine/Core/HAL/FileDialog.h"
 #include "SimpleEngine/Utility/StringUtils.h"
 #include "tracy/Tracy.hpp"
 
@@ -454,14 +455,11 @@ void App::Update(float delta_time)
 
     ImGui::Begin("Import Asset");
     {
-        static char file_path[256] = "C:/path/to/mesh.obj";
-        ImGui::InputText("File Path", file_path, sizeof(file_path));
-
         if (ImGui::Button("Load Mesh"))
         {
-            std::filesystem::path path(file_path);
-            if (std::filesystem::exists(path))
+            FileDialog::OpenFile([this](const String& path_string)
             {
+                std::filesystem::path path{ reinterpret_cast<const char8_t*>(path_string.CStr()) };
                 auto assets = asset_importer->Import(path);
                 for (const auto& asset : assets)
                 {
@@ -495,7 +493,7 @@ void App::Update(float delta_time)
                         }
                     }
                 }
-            }
+            });
         }
     }
     ImGui::End();
