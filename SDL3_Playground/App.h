@@ -122,6 +122,7 @@ private:
 
     SDL_GPUGraphicsPipeline* pipeline = nullptr;
     SDL_GPUGraphicsPipeline* line_pipeline = nullptr;
+    SDL_GPUGraphicsPipeline* gizmo_pipeline = nullptr;
 
     SDL_GPUBuffer* debug_unit_cube_vbuf = nullptr;
     SDL_GPUBuffer* debug_unit_cube_ibuf = nullptr;
@@ -130,4 +131,6 @@ private:
 
     std::unique_ptr<se::graphics::GpuResourceManager> gpu_resource_manager;
     se::Array<std::shared_ptr<LoadedMesh>> loaded_meshes;
+
+    int32 selected_entity = -1;
 };

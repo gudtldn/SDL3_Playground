@@ -1,14 +1,7 @@
-cbuffer UBO : register(b0, space1)
-{
-    float4x4 MVP;
-}
-
 struct VertexInput
 {
-    float4 position : POSITION;
+    float3 position : POSITION;
     float3 normal : NORMAL;
-    float2 tex_coord : TEXCOORD;
-    float4 tangent : TANGENT;
 };
 
 struct VertexOutput
@@ -17,10 +10,15 @@ struct VertexOutput
     float3 normal : NORMAL;
 };
 
+cbuffer MVPBuffer : register(b0, space1)
+{
+    float4x4 mvp;
+};
+
 VertexOutput main(VertexInput input)
 {
     VertexOutput output;
-    output.position = mul(MVP, input.position);
+    output.position = mul(mvp, float4(input.position, 1.0));
     output.normal = input.normal;
     return output;
 }

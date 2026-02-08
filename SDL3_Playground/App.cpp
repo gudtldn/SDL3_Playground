@@ -315,6 +315,27 @@ void App::Initialize()
         },
     });
 
+    // 기즈모용 파이프라인 (두꺼운 상자 형태를 위해 TRIANGLELIST 사용)
+    gizmo_pipeline = pso_manager->GetOrCreateGraphicsPipeline({
+        .vertex_shader_request = { .source_path = root / "Shaders/Default.vert.hlsl" },
+        .fragment_shader_request = { .source_path = root / "Shaders/Default.frag.hlsl" },
+        .vertex_input_state = {
+            .vertex_buffer_descriptions = vertex_buffer_desc,
+            .num_vertex_buffers = std::size(vertex_buffer_desc),
+            .vertex_attributes = vertex_attributes,
+            .num_vertex_attributes = std::size(vertex_attributes),
+        },
+        .primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST, // Solid 렌더링
+        .rasterizer_state = { .cull_mode = SDL_GPU_CULLMODE_NONE },
+        .depth_stencil_state = { .enable_depth_test = false, .enable_depth_write = false },
+        .target_info = {
+            .color_target_descriptions = color_target_desc,
+            .num_color_targets = std::size(color_target_desc),
+            .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
+            .has_depth_stencil_target = true,
+        },
+    });
+
     // 뎁스 텍스처 생성
     constexpr SDL_GPUTextureCreateInfo texture_info = {
         .type = SDL_GPU_TEXTURETYPE_2D,
@@ -334,9 +355,10 @@ void App::Initialize()
         {{0,0,1}}, {{1,0,1}}, {{1,1,1}}, {{0,1,1}}
     };
     uint32 unit_cube_indices[] = {
-        0,1, 1,2, 2,3, 3,0, // Bottom
-        4,5, 5,6, 6,7, 7,4, // Top
-        0,4, 1,5, 2,6, 3,7  // Vertical
+        // Lines (24 indices)
+        0,1, 1,2, 2,3, 3,0, 4,5, 5,6, 6,7, 7,4, 0,4, 1,5, 2,6, 3,7,
+        // Triangles (36 indices)
+        0,2,1, 0,3,2, 4,5,6, 4,6,7, 0,1,5, 0,5,4, 1,2,6, 1,6,5, 2,3,7, 2,7,6, 3,0,4, 3,4,7
     };
 
     // 버퍼 생성 및 데이터 업로드
@@ -491,7 +513,6 @@ void App::Update(float delta_time)
 {
     ZoneScoped;
 
-    static int32 selected_entity = -1;
     static int32 selected_component = 0;
 
     // Camera Input
@@ -964,6 +985,8 @@ void App::Render() const
                     }
 
                     SDL_PushGPUVertexUniformData(command_buffer, 0, &mvpf, sizeof(mvpf));
+                    SDL_FColor color = { 0.0f, 0.0f, 0.0f, 0.0f };
+                    SDL_PushGPUFragmentUniformData(command_buffer, 0, &color, sizeof(color));
 
                     // Vertex Buffer 바인딩
                     const SDL_GPUBufferBinding vertex_binding = {
@@ -1019,26 +1042,60 @@ void App::Render() const
                     if (!mesh_comp.mesh || !mesh_comp.mesh->mesh_data) continue;
 
                     const AABBf& bounds = mesh_comp.mesh->mesh_data->bounds;
-                    
-                    // AABB를 위한 로컬 변환 행렬 (Unit Cube [0,1] -> AABB [min, max])
-                    Vector3f size = bounds.GetSize();
-                    Vector3f min = bounds.min;
-                    
-                    // Scale * Translation
-                    Matrix4x4 aabb_local = math::TransformUtility::MakeFromScale(Vector3(size.x, size.y, size.z)) * 
-                                          math::TransformUtility::MakeFromTranslation(Vector3(min.x, min.y, min.z));
-
-                    // Entity Model Matrix 적용
-                    Matrix4x4 model = math::TransformUtility::MakeModelMatrix(
-                        transform.position, transform.rotation, transform.scale
-                    );
-                    
+                    Matrix4x4 aabb_local = math::TransformUtility::MakeFromScale(Vector3(bounds.GetSize().x, bounds.GetSize().y, bounds.GetSize().z)) * 
+                                          math::TransformUtility::MakeFromTranslation(Vector3(bounds.min.x, bounds.min.y, bounds.min.z));
+                    Matrix4x4 model = math::TransformUtility::MakeModelMatrix(transform.position, transform.rotation, transform.scale);
                     Matrix4x4 mvp = aabb_local * model * vp_mat;
                     Matrix4x4f mvpf;
                     for (int i = 0; i < 16; ++i) mvpf.GetData()[i] = (float)mvp.GetData()[i];
 
                     SDL_PushGPUVertexUniformData(command_buffer, 0, &mvpf, sizeof(mvpf));
-                    SDL_DrawGPUIndexedPrimitives(render_pass, 24, 1, 0, 0, 0);
+                    
+                    // AABB 색상 (초록색, 투명도 조절용 a=1.0)
+                    SDL_FColor aabb_color = { 0.0f, 1.0f, 0.0f, 1.0f };
+                    SDL_PushGPUFragmentUniformData(command_buffer, 0, &aabb_color, sizeof(aabb_color));
+
+                    SDL_DrawGPUIndexedPrimitives(render_pass, 24, 1, 0, 0, 0); // Line indices
+                }
+
+                // --- 기즈모 렌더링 ---
+                if (selected_entity >= 0)
+                {
+                    Array<Entity> entities = world.GetAliveEntities();
+                    if (selected_entity < (int)entities.Len())
+                    {
+                        Entity entity = entities[selected_entity];
+                        if (auto transform_opt = world.TryGetComponent<TransformComponent>(entity))
+                        {
+                            SDL_BindGPUGraphicsPipeline(render_pass, gizmo_pipeline);
+
+                            auto& transform = transform_opt.Value();
+                            Vector3 pos = transform.position;
+                            float length = 3.0f;
+                            float thickness = 0.1f;
+
+                            auto draw_solid_axis = [&](const Vector3& scale, const SDL_FColor& color)
+                            {
+                                Matrix4x4 mat = math::TransformUtility::MakeFromScale(scale) * 
+                                                 math::TransformUtility::MakeFromTranslation(pos);
+                                Matrix4x4 mvp = mat * vp_mat;
+                                Matrix4x4f mvpf;
+                                for (int i = 0; i < 16; ++i) mvpf.GetData()[i] = (float)mvp.GetData()[i];
+
+                                SDL_PushGPUVertexUniformData(command_buffer, 0, &mvpf, sizeof(mvpf));
+                                SDL_PushGPUFragmentUniformData(command_buffer, 0, &color, sizeof(color));
+                                // Triangle indices는 24번 인덱스부터 36개
+                                SDL_DrawGPUIndexedPrimitives(render_pass, 36, 1, 24, 0, 0); 
+                            };
+
+                            // X축 (Red)
+                            draw_solid_axis(Vector3(length, thickness, thickness), { 1, 0, 0, 1 });
+                            // Y축 (Green)
+                            draw_solid_axis(Vector3(thickness, length, thickness), { 0, 1, 0, 1 });
+                            // Z축 (Blue)
+                            draw_solid_axis(Vector3(thickness, thickness, length), { 0, 0, 1, 1 });
+                        }
+                    }
                 }
 
                 // Render ImGui
