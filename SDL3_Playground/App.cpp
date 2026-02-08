@@ -12,6 +12,7 @@
 #include "SimpleEngine/Asset/Types/MeshTypes.h"
 #include "SimpleEngine/Core/HAL/FileDialog.h"
 #include "SimpleEngine/Core/Math/Math.h"
+#include "SimpleEngine/Core/Math/Ray.h"
 #include "SimpleEngine/ECS/Query.h"
 #include "SimpleEngine/ECS/Components/TransformComponent.h"
 #include "SimpleEngine/Graphics/MeshPrimitives.h"
@@ -31,6 +32,29 @@
 using namespace se;
 using namespace se::ecs;
 using namespace se::graphics;
+
+static se::Ray ScreenToWorldRay(float mouse_x, float mouse_y, float window_w, float window_h, const Matrix4x4& view_mat, const Matrix4x4& proj_mat)
+{
+    // NDC: x [-1, 1], y [1, -1]
+    const float ndc_x = (2.0f * mouse_x) / window_w - 1.0f;
+    const float ndc_y = 1.0f - (2.0f * mouse_y) / window_h;
+
+    const Matrix4x4 inv_vp = (view_mat * proj_mat).Inverse();
+
+    const Vector4 near_clip(ndc_x, ndc_y, 0.0f, 1.0f);
+    const Vector4 far_clip(ndc_x, ndc_y, 1.0f, 1.0f);
+
+    Vector4 near_world = near_clip * inv_vp;
+    Vector4 far_world = far_clip * inv_vp;
+
+    near_world /= near_world.w;
+    far_world /= far_world.w;
+
+    const Vector3 ray_origin = Vector3(near_world.x, near_world.y, near_world.z);
+    const Vector3 ray_dir = (Vector3(far_world.x, far_world.y, far_world.z) - ray_origin).GetNormalized();
+
+    return se::Ray(ray_origin, ray_dir);
+}
 
 double App::CurrentTime = 0.0;
 double App::LastTime = 0.0;
@@ -256,6 +280,41 @@ void App::Initialize()
         SDL_AssertBreakpoint();
     }
 
+    // 선 렌더링용 파이프라인 생성
+    line_pipeline = pso_manager->GetOrCreateGraphicsPipeline({
+        .vertex_shader_request = {
+            .source_path = root / "Shaders/Default.vert.hlsl",
+        },
+        .fragment_shader_request = {
+            .source_path = root / "Shaders/Default.frag.hlsl",
+        },
+        .vertex_input_state = {
+            .vertex_buffer_descriptions = vertex_buffer_desc,
+            .num_vertex_buffers = std::size(vertex_buffer_desc),
+            .vertex_attributes = vertex_attributes,
+            .num_vertex_attributes = std::size(vertex_attributes),
+        },
+        .primitive_type = SDL_GPU_PRIMITIVETYPE_LINELIST, // 선 리스트 사용
+        .rasterizer_state = {
+            .fill_mode = SDL_GPU_FILLMODE_FILL,
+            .cull_mode = SDL_GPU_CULLMODE_NONE,
+            .front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE
+        },
+        .multisample_state = {},
+        .depth_stencil_state = {
+            .compare_op = SDL_GPU_COMPAREOP_LESS,
+            .enable_depth_test = true,
+            .enable_depth_write = false,
+            .enable_stencil_test = false,
+        },
+        .target_info = {
+            .color_target_descriptions = color_target_desc,
+            .num_color_targets = std::size(color_target_desc),
+            .depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D24_UNORM_S8_UINT,
+            .has_depth_stencil_target = true,
+        },
+    });
+
     // 뎁스 텍스처 생성
     constexpr SDL_GPUTextureCreateInfo texture_info = {
         .type = SDL_GPU_TEXTURETYPE_2D,
@@ -268,6 +327,44 @@ void App::Initialize()
         .sample_count = SDL_GPU_SAMPLECOUNT_1,
     };
     depth_texture = SDL_CreateGPUTexture(gpu_device, &texture_info);
+
+    // 단위 큐브(0~1) 정점 데이터 (선 렌더링용)
+    Vertex unit_cube_vertices[] = {
+        {{0,0,0}}, {{1,0,0}}, {{1,1,0}}, {{0,1,0}},
+        {{0,0,1}}, {{1,0,1}}, {{1,1,1}}, {{0,1,1}}
+    };
+    uint32 unit_cube_indices[] = {
+        0,1, 1,2, 2,3, 3,0, // Bottom
+        4,5, 5,6, 6,7, 7,4, // Top
+        0,4, 1,5, 2,6, 3,7  // Vertical
+    };
+
+    // 버퍼 생성 및 데이터 업로드
+    SDL_GPUBufferCreateInfo vbuf_info = { .usage = SDL_GPU_BUFFERUSAGE_VERTEX, .size = sizeof(unit_cube_vertices) };
+    SDL_GPUBufferCreateInfo ibuf_info = { .usage = SDL_GPU_BUFFERUSAGE_INDEX, .size = sizeof(unit_cube_indices) };
+    debug_unit_cube_vbuf = SDL_CreateGPUBuffer(gpu_device, &vbuf_info);
+    debug_unit_cube_ibuf = SDL_CreateGPUBuffer(gpu_device, &ibuf_info);
+
+    SDL_GPUTransferBufferCreateInfo transfer_info = { .usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, .size = sizeof(unit_cube_vertices) + sizeof(unit_cube_indices) };
+    SDL_GPUTransferBuffer* transfer_buffer = SDL_CreateGPUTransferBuffer(gpu_device, &transfer_info);
+    
+    void* map = SDL_MapGPUTransferBuffer(gpu_device, transfer_buffer, false);
+    SDL_memcpy(map, unit_cube_vertices, sizeof(unit_cube_vertices));
+    SDL_memcpy((uint8*)map + sizeof(unit_cube_vertices), unit_cube_indices, sizeof(unit_cube_indices));
+    SDL_UnmapGPUTransferBuffer(gpu_device, transfer_buffer);
+
+    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(gpu_device);
+    SDL_GPUCopyPass* copy_pass = SDL_BeginGPUCopyPass(cmd);
+    SDL_GPUTransferBufferLocation src_v = { .transfer_buffer = transfer_buffer, .offset = 0 };
+    SDL_GPUBufferRegion dst_v = { .buffer = debug_unit_cube_vbuf, .offset = 0, .size = sizeof(unit_cube_vertices) };
+    SDL_UploadToGPUBuffer(copy_pass, &src_v, &dst_v, false);
+
+    SDL_GPUTransferBufferLocation src_i = { .transfer_buffer = transfer_buffer, .offset = sizeof(unit_cube_vertices) };
+    SDL_GPUBufferRegion dst_i = { .buffer = debug_unit_cube_ibuf, .offset = 0, .size = sizeof(unit_cube_indices) };
+    SDL_UploadToGPUBuffer(copy_pass, &src_i, &dst_i, false);
+    SDL_EndGPUCopyPass(copy_pass);
+    SDL_SubmitGPUCommandBuffer(cmd);
+    SDL_ReleaseGPUTransferBuffer(gpu_device, transfer_buffer);
 }
 
 void App::Run()
@@ -394,10 +491,92 @@ void App::Update(float delta_time)
 {
     ZoneScoped;
 
+    static int32 selected_entity = -1;
+    static int32 selected_component = 0;
+
     // Camera Input
     float x_delta, y_delta;
     SDL_MouseButtonFlags m_buttons = SDL_GetRelativeMouseState(&x_delta, &y_delta);
     const bool* keys = SDL_GetKeyboardState(nullptr);
+
+    // Picking logic
+    if (!ImGui::GetIO().WantCaptureMouse && (SDL_GetMouseState(nullptr, nullptr) & SDL_BUTTON_MASK(SDL_BUTTON_LEFT)))
+    {
+        float mouse_x, mouse_y;
+        SDL_GetMouseState(&mouse_x, &mouse_y);
+
+        int w, h;
+        SDL_GetWindowSize(GetMainWindow(), &w, &h);
+
+        Matrix4x4 view_mat = math::TransformUtility::MakeViewMatrix(
+            my_camera.position, my_camera.position + my_camera.rotation.GetForwardVector(), Vector3::UnitZ()
+        );
+        Matrix4x4 projection_mat = math::TransformUtility::MakePerspectiveMatrix(
+            Radian{ my_camera.fov },
+            static_cast<double>(w) / h,
+            0.1, 10000.0
+        );
+
+        se::Ray ray = ScreenToWorldRay(mouse_x, mouse_y, static_cast<float>(w), static_cast<float>(h), view_mat, projection_mat);
+
+        double closest_dist = std::numeric_limits<double>::max();
+        Entity closest_entity = Entity{};
+
+        for (auto [entity, transform, mesh_comp] : world.QueryEntities<Entity, const TransformComponent&, const MeshComponent&>())
+        {
+            if (!mesh_comp.mesh || !mesh_comp.mesh->mesh_data) continue;
+
+            Matrix4x4 model = math::TransformUtility::MakeModelMatrix(
+                transform.position, transform.rotation, transform.scale
+            );
+            Matrix4x4 inv_model = model.Inverse();
+
+            // Transform Ray to local space
+            Vector4 local_origin_v4 = Vector4(ray.origin.x, ray.origin.y, ray.origin.z, 1.0f) * inv_model;
+            Vector3 local_origin = Vector3(local_origin_v4.x, local_origin_v4.y, local_origin_v4.z) / local_origin_v4.w;
+
+            Vector4 local_dir_v4 = Vector4(ray.direction.x, ray.direction.y, ray.direction.z, 0.0f) * inv_model;
+            Vector3 local_dir = Vector3(local_dir_v4.x, local_dir_v4.y, local_dir_v4.z).GetNormalized();
+
+            se::Ray local_ray(local_origin, local_dir);
+
+            const AABBf& mesh_bounds = mesh_comp.mesh->mesh_data->bounds;
+            const AABB bounds_d(
+                Vector3(mesh_bounds.min.x, mesh_bounds.min.y, mesh_bounds.min.z),
+                Vector3(mesh_bounds.max.x, mesh_bounds.max.y, mesh_bounds.max.z)
+            );
+
+            double dist;
+            if (local_ray.Intersects(bounds_d, dist))
+            {
+                // To be precise, calculate world space distance
+                Vector3 hit_local = local_ray.GetPoint(dist);
+                Vector4 hit_world_v4 = Vector4(hit_local.x, hit_local.y, hit_local.z, 1.0f) * model;
+                Vector3 hit_world = Vector3(hit_world_v4.x, hit_world_v4.y, hit_world_v4.z) / hit_world_v4.w;
+
+                double world_dist = (hit_world - ray.origin).Length();
+
+                if (world_dist < closest_dist)
+                {
+                    closest_dist = world_dist;
+                    closest_entity = entity;
+                }
+            }
+        }
+
+        if (closest_entity.IsValid())
+        {
+            Array<Entity> entities = world.GetAliveEntities();
+            for (int i = 0; i < static_cast<int>(entities.Len()); ++i)
+            {
+                if (entities[i] == closest_entity)
+                {
+                    selected_entity = i;
+                    break;
+                }
+            }
+        }
+    }
 
     if (m_buttons & SDL_BUTTON_MASK(SDL_BUTTON_RIGHT))
     {
@@ -536,8 +715,6 @@ void App::Update(float delta_time)
         ImGui::Text("FPS: %.3f", ImGui::GetIO().Framerate);
         ImGui::Text("FPS: %.3f", 1 / delta_time);
 
-        static int32 selected_entity = -1;
-        static int32 selected_component = 0;
         static Array component_names {
              "TransformComponent", "MeshComponent"
         };
@@ -705,10 +882,6 @@ void App::Update(float delta_time)
             constexpr double min_value = 0.001, max_value = 10.0;
             ImGui::SliderScalarN("Sensitivity", ImGuiDataType_Double, &my_camera.sensitivity, 1, &min_value, &max_value);
         }
-        {
-            constexpr double min_value = 0.0, max_value = 180.0;
-            ImGui::SliderScalarN("FOV", ImGuiDataType_Double, &my_camera.fov.value, 1, &min_value, &max_value);
-        }
     }
     ImGui::End();
 }
@@ -832,6 +1005,41 @@ void App::Render() const
 
                 // 임시 코드
                 world.RunPhase<UpdatePhase>();
+
+                // --- AABB 직접 렌더링 구현 ---
+                SDL_BindGPUGraphicsPipeline(render_pass, line_pipeline);
+                
+                const SDL_GPUBufferBinding v_binding = { .buffer = debug_unit_cube_vbuf, .offset = 0 };
+                SDL_BindGPUVertexBuffers(render_pass, 0, &v_binding, 1);
+                const SDL_GPUBufferBinding i_binding = { .buffer = debug_unit_cube_ibuf, .offset = 0 };
+                SDL_BindGPUIndexBuffer(render_pass, &i_binding, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+                for (auto [transform, mesh_comp] : world.QueryEntities<const TransformComponent&, const MeshComponent&>())
+                {
+                    if (!mesh_comp.mesh || !mesh_comp.mesh->mesh_data) continue;
+
+                    const AABBf& bounds = mesh_comp.mesh->mesh_data->bounds;
+                    
+                    // AABB를 위한 로컬 변환 행렬 (Unit Cube [0,1] -> AABB [min, max])
+                    Vector3f size = bounds.GetSize();
+                    Vector3f min = bounds.min;
+                    
+                    // Scale * Translation
+                    Matrix4x4 aabb_local = math::TransformUtility::MakeFromScale(Vector3(size.x, size.y, size.z)) * 
+                                          math::TransformUtility::MakeFromTranslation(Vector3(min.x, min.y, min.z));
+
+                    // Entity Model Matrix 적용
+                    Matrix4x4 model = math::TransformUtility::MakeModelMatrix(
+                        transform.position, transform.rotation, transform.scale
+                    );
+                    
+                    Matrix4x4 mvp = aabb_local * model * vp_mat;
+                    Matrix4x4f mvpf;
+                    for (int i = 0; i < 16; ++i) mvpf.GetData()[i] = (float)mvp.GetData()[i];
+
+                    SDL_PushGPUVertexUniformData(command_buffer, 0, &mvpf, sizeof(mvpf));
+                    SDL_DrawGPUIndexedPrimitives(render_pass, 24, 1, 0, 0, 0);
+                }
 
                 // Render ImGui
                 if (window_id == main_window_id)

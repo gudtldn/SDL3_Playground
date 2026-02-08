@@ -121,6 +121,10 @@ private:
     SDL_GPUDevice* gpu_device = nullptr;
 
     SDL_GPUGraphicsPipeline* pipeline = nullptr;
+    SDL_GPUGraphicsPipeline* line_pipeline = nullptr;
+
+    SDL_GPUBuffer* debug_unit_cube_vbuf = nullptr;
+    SDL_GPUBuffer* debug_unit_cube_ibuf = nullptr;
 
     SDL_GPUTexture* depth_texture = nullptr;
 
