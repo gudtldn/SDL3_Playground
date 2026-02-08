@@ -53,8 +53,8 @@ add_compile_definitions(
 add_executable(SDL3_Playground
         SDL3_Playground/main.cpp
         SDL3_Playground/App.cpp
-        ThirdParty/SimpleEngine/Editor/Source/Rendering/Compiler/Compiler.cpp
-        ThirdParty/SimpleEngine/Editor/Source/Rendering/Compiler/Provider.cpp
+        ThirdParty/SimpleEngine/Editor/Source/Graphics/Compiler/Compiler.cpp
+        ThirdParty/SimpleEngine/Editor/Source/Graphics/Compiler/Provider.cpp
 )
 
 add_subdirectory(ThirdParty)

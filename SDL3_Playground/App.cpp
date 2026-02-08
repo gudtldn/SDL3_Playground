@@ -5,36 +5,32 @@
 #include <format>
 #include <ranges>
 
-#include "SimpleEngine/Core/Math/Math.h"
-#include "SimpleEngine/Rendering/Manager/PSOManager.h"
-#include "SimpleEngine/ECS/Query.h"
-#include "SimpleEngine/ECS/Components/TransformComponent.h"
-#include "SimpleEngine/Rendering/Memory/GpuResourceManager.h"
-
+#include "Graphics/Compiler/Provider.h"
 #include "SimpleEngine/Asset/Pipeline/AssetImporter.h"
 #include "SimpleEngine/Asset/Pipeline/Factories/StaticMeshFactory.h"
 #include "SimpleEngine/Asset/Pipeline/Translators/AssimpTranslator.h"
 #include "SimpleEngine/Asset/Types/MeshTypes.h"
-#include "SimpleEngine/Gfx/MeshPrimitives.h"
+#include "SimpleEngine/Core/HAL/FileDialog.h"
+#include "SimpleEngine/Core/Math/Math.h"
+#include "SimpleEngine/ECS/Query.h"
+#include "SimpleEngine/ECS/Components/TransformComponent.h"
+#include "SimpleEngine/Graphics/MeshPrimitives.h"
+#include "SimpleEngine/Graphics/Manager/PSOManager.h"
+#include "SimpleEngine/Graphics/Memory/GpuResourceManager.h"
+#include "SimpleEngine/Utility/StringUtils.h"
 
 #include "imgui.h"
 #include "imgui_impl_sdl3.h"
 #include "imgui_impl_sdlgpu3.h"
-#include "Rendering/Compiler/Provider.h"
 #include "SDL3/SDL.h"
 #include "SDL3_shadercross/SDL_shadercross.h"
-#include "SimpleEngine/Core/HAL/FileDialog.h"
-#include "SimpleEngine/Utility/StringUtils.h"
 #include "tracy/Tracy.hpp"
 
 #pragma warning(disable: 4996) // deprecated warning
 
 using namespace se;
-using namespace se::core;
 using namespace se::ecs;
-using namespace se::rendering;
-
-using Vertex = se::gfx::Vertex;
+using namespace se::graphics;
 
 double App::CurrentTime = 0.0;
 double App::LastTime = 0.0;
@@ -172,7 +168,7 @@ void App::Initialize()
     SDL_ShowWindow(window);
 
     pso_manager = std::make_unique<PSOManager>(gpu_device);
-    pso_manager->SetShaderCacheProvider<editor::rendering::CompilingShaderProvider>();
+    pso_manager->SetShaderCacheProvider<editor::CompilingShaderProvider>();
 
     // GPU Resource Manager 초기화
     gpu_resource_manager = std::make_unique<GpuResourceManager>(gpu_device);
@@ -408,10 +404,10 @@ void App::Update(float delta_time)
         SDL_SetWindowRelativeMouseMode(focused_window, true);
 
         {
-            const Quaternion yaw_q = Quaternion::FromAxisAngle(Vector3::UnitZ(), math::DegreesToRadians(-x_delta * my_camera.sensitivity));
+            const Quaternion yaw_q = Quaternion::FromAxisAngle(Vector3::UnitZ(), math::DegToRad(-x_delta * my_camera.sensitivity));
             const Quaternion pitch_q = Quaternion::FromAxisAngle(
                 my_camera.rotation.GetRightVector(),
-                math::DegreesToRadians(-y_delta * my_camera.sensitivity)
+                math::DegToRad(-y_delta * my_camera.sensitivity)
             );
             my_camera.rotation = yaw_q * pitch_q * my_camera.rotation;
         }
@@ -457,17 +453,21 @@ void App::Update(float delta_time)
     {
         if (ImGui::Button("Load Mesh"))
         {
-            FileDialog::OpenFile([this](const String& path_string)
+            FileDialog::OpenFile([this](const Path& path)
             {
-                std::filesystem::path path{ reinterpret_cast<const char8_t*>(path_string.CStr()) };
                 auto assets = asset_importer->Import(path);
-                for (const auto& asset : assets)
+                if (assets.HasError())
+                {
+                    return;
+                }
+
+                for (const auto& asset : *assets)
                 {
                     if (auto mesh = std::dynamic_pointer_cast<asset::StaticMesh>(asset))
                     {
                         auto loaded_mesh = std::make_shared<LoadedMesh>();
                         loaded_mesh->id = asset::AssetId(Guid::NewGuid());
-                        loaded_mesh->name = utility::ToString(path.filename().u8string()); // Use filename as name
+                        loaded_mesh->name = path.FileName().ValueOr("Unknown"); // Use filename as name
                         loaded_mesh->mesh_data = mesh;
 
                         SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(gpu_device);
@@ -817,7 +817,7 @@ void App::Render() const
                 static bool is_first = true;
                 if (is_first)
                 {
-                    world.AddSystem<schedule::Update>([&](Query<const TransformComponent&, const MeshComponent&> query)
+                    world.AddSystem<UpdatePhase>([&](Query<const TransformComponent&, const MeshComponent&> query)
                     {
                         for (const auto& [transform_comp, mesh_comp] : query)
                         {
@@ -831,7 +831,7 @@ void App::Render() const
                 }
 
                 // 임시 코드
-                world.RunSchedule<schedule::Update>();
+                world.RunPhase<UpdatePhase>();
 
                 // Render ImGui
                 if (window_id == main_window_id)

@@ -13,7 +13,7 @@
 
 namespace se
 {
-namespace rendering
+namespace graphics
 {
     class PSOManager;
     class GpuResourceManager;
@@ -111,7 +111,7 @@ private:
 
 private:
     std::unique_ptr<se::asset::AssetImporter> asset_importer;
-    std::unique_ptr<se::rendering::PSOManager> pso_manager;
+    std::unique_ptr<se::graphics::PSOManager> pso_manager;
     mutable se::ecs::World world;
 
 private:
@@ -124,6 +124,6 @@ private:
 
     SDL_GPUTexture* depth_texture = nullptr;
 
-    std::unique_ptr<se::rendering::GpuResourceManager> gpu_resource_manager;
+    std::unique_ptr<se::graphics::GpuResourceManager> gpu_resource_manager;
     se::Array<std::shared_ptr<LoadedMesh>> loaded_meshes;
 };

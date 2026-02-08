@@ -7,7 +7,7 @@
 int main()
 {
     {
-        using namespace se::core;
+        using namespace se;
         LogBackendManager::Get().AddBackend<ConsoleBackend>();
         LogSettings::SetForceColor(true);
     }
